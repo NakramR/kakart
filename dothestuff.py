@@ -154,6 +154,8 @@ ORDER BY user_id, frequency DESC, product_id"""
 
     d = pd.read_sql(query, postgresconnection)
 
+    d = pd.merge(d, prod_train, on=['user_id', 'product_id'], how='left')
+
     return d
 
 
