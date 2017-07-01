@@ -226,12 +226,12 @@ myprediction = p1[p1['ordered'] == True].groupby('user_id')['product_id'].apply(
 #print(myprediction)
 
 debugWithTimer("getting test users")
-usersInTest = pd.read_sql("SELECT user_id FROM orders WHERE eval_set = 'test' AND user_id < " + maxuserid, postgresconnection)['user_id'].values.tolist()
+usersInTest = pd.read_sql("SELECT user_id, order_id FROM orders WHERE eval_set = 'test' AND user_id < " + maxuserid, postgresconnection)
 #print(usersInTest)
 
 debugWithTimer("creating CSV")
 predictionToSave = p1[p1['ordered'] == True]
-xxx1 = predictionToSave[predictionToSave['user_id'].isin(usersInTest)]
+xxx1 = predictionToSave[predictionToSave['user_id'].isin(usersInTest['user_id'].values.tolist())]
 xxx2 = xxx1.groupby('user_id')['product_id']
 xxx3 = xxx2.apply(list)
 predictionDF = xxx3
@@ -252,10 +252,13 @@ for user in usersInTest:
 
 csvToSave = csvToSave.append(emptyUsers)
 
-del(csvToSave['predictions'])
+#add order_ids to the CSV
+
+csvToSave = pd.merge(usersInTest, csvToSave, on='user_id')
+
 
 debugWithTimer("saving CSV")
-csvToSave.to_csv('data\\myprediction1.csv', index=False, header=False, columns={'user_id', 'predictionstring'})
+csvToSave.to_csv('data\\myprediction1.csv', index=False, header=False, columns={'order_id', 'predictionstring'})
 
 debugWithTimer("generating score estimate")
 usercount = 0
