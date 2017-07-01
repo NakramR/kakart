@@ -39,12 +39,8 @@ departments = pd.read_csv('data\\departments.csv')
 
 prod_prior = [] #pd.read_csv('data\\order_products__prior.csv')
 prod_train = [] #pd.read_csv('data\\order_products__train.csv')
-#allproductorders = pd.concat([prod_prior, prod_train])
 orders = [] #pd.read_csv('data\\orders.csv')
-
-samplesubmission = pd.read_csv('data\\sample_submission.csv')
-
-userproducts = {}
+userproductstats = []
 
 
 ## Save to postgres
@@ -79,7 +75,7 @@ userproducts = {}
 
 
 def initData(maxusers):
-    global prod_prior, prod_train, orders
+    global prod_prior, prod_train, orders, userproductstats
 
     if os.path.isfile('data\\cache\\prod_prior' + maxusers + '.csv'):
         prod_prior = pd.read_csv('data\\cache\\prod_prior' + maxusers + '.csv')
@@ -92,6 +88,12 @@ def initData(maxusers):
         prod_prior.to_csv('data\\cache\\prod_prior' + maxusers + '.csv')
         prod_train.to_csv('data\\cache\\prod_train' + maxusers + '.csv')
         orders.to_csv('data\\cache\\orders' + maxusers + '.csv')
+
+    if os.path.isfile('data\\cache\\userproductstats' + maxusers + '.csv'):
+        userproductstats = pd.read_csv('data\\cache\\userproductstats' + maxusers + '.csv')
+    else:
+        userproductstats = getUserProductStats(maxusers)
+        userproductstats.to_csv('data\\cache\\userproductstats' + maxusers + '.csv')
 
 
 
@@ -154,7 +156,7 @@ ORDER BY user_id, frequency DESC, product_id"""
 
     d = pd.read_sql(query, postgresconnection)
 
-    d = pd.merge(d, prod_train, on=['user_id', 'product_id'], how='left')
+    d = pd.merge(d, prod_train[['product_id', 'user_id','reordered']], on=['user_id', 'product_id'], how='left')
 
     return d
 
@@ -162,7 +164,7 @@ ORDER BY user_id, frequency DESC, product_id"""
 def generateRandomPrediction():
     randpred = pd.DataFrame(columns=('user_id', 'product_id', 'ordered'))
     debugWithTimer('reading distinct user products')
-    userpriorproducts = getUserProductStats(maxuserid)
+    userpriorproducts = userproductstats
 
     #userpriorproducts = pd.read_sql('SELECT DISTINCT prod_prior.product_id, orders.user_id FROM prod_prior LEFT JOIN orders ON orders.order_id = prod_prior.order_id WHERE user_id < ' + maxuserid, postgresconnection)
 
