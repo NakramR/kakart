@@ -22,9 +22,9 @@ def debugWithTimer(message):
 start = time.perf_counter()
 lasttime = start
 
-#maxuserid = '10'
+maxuserid = '10'
 #maxuserid = '1000'
-maxuserid = '1000000000'
+#maxuserid = '1000000000'
 
 
 
@@ -133,11 +133,36 @@ def addPercentages(user_id):
     #orders[order_id]['immediatepriorpercent'] = 0.98
     #user[user_id][product_id].frequency = 0.75
 
+def getUserProductStats(maxuser):
+    query = """ SELECT DISTINCT user_id, product_id, numproductorders, totaluserorders , firstproductorder , lastproductorder
+, CAST(numproductorders AS float)/((totaluserorders-firstproductorder )+1) AS frequency
+FROM
+(
+SELECT
+p.order_id, p.product_id, user_id, order_number
+, COUNT(*) OVER (PARTITION BY user_id, p.product_id) AS numproductorders
+, MAX(order_number) OVER (PARTITION BY user_id) AS totaluserorders
+, MIN(order_number) OVER (PARTITION BY user_id, p.product_id) AS firstproductorder
+, MAX(order_number) OVER (PARTITION BY user_id, p.product_id) AS lastproductorder
+FROM prod_prior p
+LEFT JOIN orders ON orders.order_id = p.order_id
+--LEFT JOIN products ON p.product_id = products.product_id
+WHERE user_id < """ + maxuser + """
+ORDER BY user_id, order_number
+) AS pustats
+ORDER BY user_id, frequency DESC, product_id"""
+
+    d = pd.read_sql(query, postgresconnection)
+
+    return d
+
 
 def generateRandomPrediction():
     randpred = pd.DataFrame(columns=('user_id', 'product_id', 'ordered'))
     debugWithTimer('reading distinct user products')
-    userpriorproducts = pd.read_sql('SELECT DISTINCT prod_prior.product_id, orders.user_id FROM prod_prior LEFT JOIN orders ON orders.order_id = prod_prior.order_id WHERE user_id < ' + maxuserid, postgresconnection)
+    userpriorproducts = getUserProductStats(maxuserid)
+
+    #userpriorproducts = pd.read_sql('SELECT DISTINCT prod_prior.product_id, orders.user_id FROM prod_prior LEFT JOIN orders ON orders.order_id = prod_prior.order_id WHERE user_id < ' + maxuserid, postgresconnection)
 
     #print(userpriorproducts.describe())
 
@@ -241,16 +266,17 @@ debugWithTimer("formatting CSV")
 csvToSave = pd.DataFrame(columns={'user_id', 'predictions'})
 csvToSave['predictions'] = xxx3
 csvToSave['user_id'] = xxx3.keys()
-csvToSave['predictionstring'] = csvToSave['predictions'].map(lambda x: ' '.join(str(xx) for xx in x))
+csvToSave['products'] = csvToSave['predictions'].map(lambda x: ' '.join(str(xx) for xx in x))
 
 ## add users that have no predictions
 
 emptyUsers = []
-for user in usersInTest:
+for user in usersInTest['user_id']:
     if user not in xxx3.keys():
         emptyUsers.append( {'user_id': user, 'predictionstring' : 'None'})
 
-csvToSave = csvToSave.append(emptyUsers)
+if len(emptyUsers) > 0:
+    csvToSave = csvToSave.append(emptyUsers)
 
 #add order_ids to the CSV
 
@@ -258,7 +284,7 @@ csvToSave = pd.merge(usersInTest, csvToSave, on='user_id')
 
 
 debugWithTimer("saving CSV")
-csvToSave.to_csv('data\\myprediction1.csv', index=False, header=False, columns={'order_id', 'predictionstring'})
+csvToSave.to_csv('data\\myprediction1.csv', index=False, header=True, columns={'order_id', 'predictionstring'})
 
 debugWithTimer("generating score estimate")
 usercount = 0
