@@ -10,6 +10,8 @@ import time
 import os.path
 
 random.seed(42)
+pd.set_option('display.float_format', lambda x: '%.3f' % x)
+
 
 debug = True
 def debugWithTimer(message):
@@ -22,8 +24,8 @@ def debugWithTimer(message):
 start = time.perf_counter()
 lasttime = start
 
-maxuserid = '10'
-#maxuserid = '1000'
+#maxuserid = '10'
+maxuserid = '1000'
 #maxuserid = '1000000000'
 
 
@@ -136,23 +138,25 @@ def addPercentages(user_id):
     #user[user_id][product_id].frequency = 0.75
 
 def getUserProductStats(maxuser):
-    query = """ SELECT DISTINCT user_id, product_id, numproductorders, totaluserorders , firstproductorder , lastproductorder
-, CAST(numproductorders AS float)/((totaluserorders-firstproductorder )+1) AS frequency
-FROM
-(
-SELECT
-p.order_id, p.product_id, user_id, order_number
-, COUNT(*) OVER (PARTITION BY user_id, p.product_id) AS numproductorders
-, MAX(order_number) OVER (PARTITION BY user_id) AS totaluserorders
-, MIN(order_number) OVER (PARTITION BY user_id, p.product_id) AS firstproductorder
-, MAX(order_number) OVER (PARTITION BY user_id, p.product_id) AS lastproductorder
-FROM prod_prior p
-LEFT JOIN orders ON orders.order_id = p.order_id
---LEFT JOIN products ON p.product_id = products.product_id
-WHERE user_id < """ + maxuser + """
-ORDER BY user_id, order_number
-) AS pustats
-ORDER BY user_id, frequency DESC, product_id"""
+    query = "SELECT * FROM userproductview WHERE user_id < " + maxuser
+
+#     query = """ SELECT DISTINCT user_id, product_id, numproductorders, totaluserorders , firstproductorder , lastproductorder
+# , CAST(numproductorders AS float)/((totaluserorders-firstproductorder )+1) AS frequency
+# FROM
+# (
+# SELECT
+# p.order_id, p.product_id, user_id, order_number
+# , COUNT(*) OVER (PARTITION BY user_id, p.product_id) AS numproductorders
+# , MAX(order_number) OVER (PARTITION BY user_id) AS totaluserorders
+# , MIN(order_number) OVER (PARTITION BY user_id, p.product_id) AS firstproductorder
+# , MAX(order_number) OVER (PARTITION BY user_id, p.product_id) AS lastproductorder
+# FROM prod_prior p
+# LEFT JOIN orders ON orders.order_id = p.order_id
+# --LEFT JOIN products ON p.product_id = products.product_id
+# WHERE user_id < """ + maxuser + """
+# ORDER BY user_id, order_number
+# ) AS pustats
+# ORDER BY user_id, frequency DESC, product_id"""
 
     d = pd.read_sql(query, postgresconnection)
 
@@ -188,8 +192,12 @@ def generateRandomPrediction():
 
     return randpred
 
+def predictOverFrequencyThreshold(threshold):
+    userpriorproducts = userproductstats
 
+    userpriorproducts['ordered'] = userpriorproducts['frequency'] > threshold
 
+    return userpriorproducts
 
 ### END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS
 ### END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS
@@ -239,9 +247,6 @@ train, test = train_test_split(trainorders, test_size = 0.2)
 #orderextra = pd.read_csv('data\\ordersextra.csv')
 
 
-debugWithTimer("generating random prediction")
-p1 = generateRandomPrediction()
-#print(p1)
 
 debugWithTimer("reading SQL truth")
 #userpriorproducts = pd.read_sql('SELECT DISTINCT prod_prior.product_id, orders.user_id FROM prod_prior LEFT JOIN orders ON orders.order_id = prod_prior.order_id WHERE user_id < ' + maxuserid, postgresconnection)
@@ -251,33 +256,46 @@ truth = pd.read_sql('SELECT orders.user_id, prod_train.product_id, TRUE AS order
 truthperuser = truth.groupby('user_id')['product_id'].apply(list)
 #print(truthperuser)
 
-myprediction = p1[p1['ordered'] == True].groupby('user_id')['product_id'].apply(list)
-#print(myprediction)
-
 debugWithTimer("getting test users")
 usersInTest = pd.read_sql("SELECT user_id, order_id FROM orders WHERE eval_set = 'test' AND user_id < " + maxuserid, postgresconnection)
 #print(usersInTest)
 
+
+## predictions
+
+debugWithTimer("generating random prediction")
+#p1 = generateRandomPrediction()
+
+
+debugWithTimer("generating freq threshold prediction")
+p2 = predictOverFrequencyThreshold(0.3)
+
+
+
+
+
+
+predictionToSaveFull = p2
+
+
+
 debugWithTimer("creating CSV")
-predictionToSave = p1[p1['ordered'] == True]
-xxx1 = predictionToSave[predictionToSave['user_id'].isin(usersInTest['user_id'].values.tolist())]
-xxx2 = xxx1.groupby('user_id')['product_id']
-xxx3 = xxx2.apply(list)
-predictionDF = xxx3
+predictionToSaveFull = predictionToSaveFull[predictionToSaveFull['ordered'] == True]
+predictionToSaveTestOnly  = predictionToSaveFull[predictionToSaveFull['user_id'].isin(usersInTest['user_id'].values.tolist())].groupby('user_id')['product_id'].apply(list)
 #print(predictionDF)
 
 debugWithTimer("formatting CSV")
 csvToSave = pd.DataFrame(columns={'user_id', 'predictions'})
-csvToSave['predictions'] = xxx3
-csvToSave['user_id'] = xxx3.keys()
-csvToSave['products'] = csvToSave['predictions'].map(lambda x: ' '.join(str(xx) for xx in x))
+csvToSave['predictions'] = predictionToSaveTestOnly
+csvToSave['user_id'] = predictionToSaveTestOnly.keys()
+csvToSave['productsx'] = csvToSave['predictions'].map(lambda x: ' '.join(str(xx) for xx in x))
 
 ## add users that have no predictions
 
 emptyUsers = []
 for user in usersInTest['user_id']:
-    if user not in xxx3.keys():
-        emptyUsers.append( {'user_id': user, 'predictionstring' : 'None'})
+    if user not in predictionToSaveTestOnly.keys():
+        emptyUsers.append( {'user_id': user, 'products' : 'None'})
 
 if len(emptyUsers) > 0:
     csvToSave = csvToSave.append(emptyUsers)
@@ -286,13 +304,15 @@ if len(emptyUsers) > 0:
 
 csvToSave = pd.merge(usersInTest, csvToSave, on='user_id')
 
+csvToSave['products'] = csvToSave['productsx'] # this is to make sure order_id is put in the CSV before products, as they are serialized in the order they are created in the dataframe
 
 debugWithTimer("saving CSV")
-csvToSave.to_csv('data\\myprediction1.csv', index=False, header=True, columns={'order_id', 'predictionstring'})
+csvToSave.to_csv('data\\myprediction1.csv', index=False, header=True, columns={'order_id', 'products'})
 
 debugWithTimer("generating score estimate")
 usercount = 0
 sumf1 = 0.0
+myprediction = predictionToSaveFull.groupby('user_id')['product_id'].apply(list)
 for index, x in truthperuser.iteritems():
     usercount = usercount +1
 
