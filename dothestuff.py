@@ -8,6 +8,7 @@ from sqlalchemy import create_engine
 import sklearn
 import time
 import os.path
+import thebestpredictionsherenotintheotherone as bestpredictions
 
 random.seed(42)
 pd.set_option('display.float_format', lambda x: '%.3f' % x)
@@ -25,8 +26,8 @@ start = time.perf_counter()
 lasttime = start
 
 #maxuserid = '10'
-maxuserid = '1000'
-#maxuserid = '1000000000'
+#maxuserid = '1000'
+maxuserid = '1000000000'
 
 
 
@@ -138,66 +139,26 @@ def addPercentages(user_id):
     #user[user_id][product_id].frequency = 0.75
 
 def getUserProductStats(maxuser):
-    query = "SELECT * FROM userproductview WHERE user_id < " + maxuser
-
-#     query = """ SELECT DISTINCT user_id, product_id, numproductorders, totaluserorders , firstproductorder , lastproductorder
-# , CAST(numproductorders AS float)/((totaluserorders-firstproductorder )+1) AS frequency
-# FROM
-# (
-# SELECT
-# p.order_id, p.product_id, user_id, order_number
-# , COUNT(*) OVER (PARTITION BY user_id, p.product_id) AS numproductorders
-# , MAX(order_number) OVER (PARTITION BY user_id) AS totaluserorders
-# , MIN(order_number) OVER (PARTITION BY user_id, p.product_id) AS firstproductorder
-# , MAX(order_number) OVER (PARTITION BY user_id, p.product_id) AS lastproductorder
-# FROM prod_prior p
-# LEFT JOIN orders ON orders.order_id = p.order_id
-# --LEFT JOIN products ON p.product_id = products.product_id
-# WHERE user_id < """ + maxuser + """
-# ORDER BY user_id, order_number
-# ) AS pustats
-# ORDER BY user_id, frequency DESC, product_id"""
+    query = "SELECT * FROM userproducttable WHERE user_id < " + maxuser
 
     d = pd.read_sql(query, postgresconnection)
 
     d = pd.merge(d, prod_train[['product_id', 'user_id','reordered']], on=['user_id', 'product_id'], how='left')
 
+    # IMPUTATION
+    print('IMPUTATION')
+    missingValues(d)
+    # d["order_days_since_prior_product_order"].fillna(0, inplace=True)
+    d["dayfrequency"].fillna(0, inplace=True)
+
     return d
 
+def missingValues(df):
+    total = df.isnull().sum().sort_values(ascending=False)
+    percent = (df.isnull().sum() / df.isnull().count()).sort_values(ascending=False)
+    missing_data = pd.concat([total, percent], axis=1, keys=['Total Missing', 'Percent'])
+    print(missing_data)
 
-def generateRandomPrediction():
-    randpred = pd.DataFrame(columns=('user_id', 'product_id', 'ordered'))
-    debugWithTimer('reading distinct user products')
-    userpriorproducts = userproductstats
-
-    #userpriorproducts = pd.read_sql('SELECT DISTINCT prod_prior.product_id, orders.user_id FROM prod_prior LEFT JOIN orders ON orders.order_id = prod_prior.order_id WHERE user_id < ' + maxuserid, postgresconnection)
-
-    #print(userpriorproducts.describe())
-
-    debugWithTimer('iterating over prior products')
-    temp = []
-    for index, x in userpriorproducts.iterrows():
-        # print(x['user_id'])
-        # print(x['product_id'])
-        #randpred[x['user_id']] = (random.random() > 0.5)
-
-        newline = { 'user_id': x['user_id'], 'product_id': x['product_id'], 'ordered': (random.random() > 0.5) }
-        temp.append(newline)
-        #randpred.loc[len(randpred)] = [ x['user_id'], x['product_id'],(random.random() > 0.5) ]
-        #randpred.append(newline, ignore_index=True)
-        #randpred[x['user_id']][x['product_id']] = (random.random() > 0.5)
-        #print(randpred.size)
-
-    randpred = randpred.append(temp)
-
-    return randpred
-
-def predictOverFrequencyThreshold(threshold):
-    userpriorproducts = userproductstats
-
-    userpriorproducts['ordered'] = userpriorproducts['frequency'] > threshold
-
-    return userpriorproducts
 
 ### END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS
 ### END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS
@@ -264,11 +225,11 @@ usersInTest = pd.read_sql("SELECT user_id, order_id FROM orders WHERE eval_set =
 ## predictions
 
 debugWithTimer("generating random prediction")
-#p1 = generateRandomPrediction()
+#p1 = bestpredictions.generateRandomPrediction()
 
 
 debugWithTimer("generating freq threshold prediction")
-p2 = predictOverFrequencyThreshold(0.3)
+p2 = bestpredictions.predictOverFrequencyThreshold(0.3)
 
 
 

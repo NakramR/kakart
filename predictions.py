@@ -30,7 +30,7 @@ def debugWithTimer(message):
 start = time.perf_counter()
 lasttime = start
 
-maxuserid = '100'
+maxuserid = '10'
 #maxuserid = '1000'
 #maxuserid = '1000000000'
 
@@ -119,7 +119,7 @@ def getUserProductStats(maxuser):
     # IMPUTATION
     print('IMPUTATION')
     missingValues(d)
-    d["order_days_since_prior_product_order"].fillna(0, inplace=True)
+    # d["order_days_since_prior_product_order"].fillna(0, inplace=True)
     d["dayfrequency"].fillna(0, inplace=True)
 
     return d
@@ -131,7 +131,7 @@ def missingValues(df):
     print(missing_data)
 
 def trainAndTestForValidation():
-    originalTrain = userproductstats[userproductstats['testortrain'] == 'train']
+    originalTrain = userproductstats[userproductstats['testortrain'] != 'test']
     originalTest = userproductstats[userproductstats['testortrain'] == 'test']
     print('originalTrain : ', originalTrain.shape, ' originalTest ', originalTest.shape)
 
@@ -144,7 +144,7 @@ def trainAndTestForValidation():
 
 
 def trainAndTestForSubmission():
-    originalTrain = userproductstats[userproductstats['testortrain'] == 'train']
+    originalTrain = userproductstats[userproductstats['testortrain'] != 'test']
     originalTest = userproductstats[userproductstats['testortrain'] == 'test']
     print('originalTrain : ', originalTrain.shape, ' originalTest ', originalTest.shape)
 
