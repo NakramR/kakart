@@ -197,6 +197,10 @@ def generateLinearRegressionPrediction():
     y_train = train['reordered']
 
     estimator.fit(X_train, y_train)
+    estimator.score(X_train, y_train)
+    # Equation coefficient and Intercept
+    print('Coefficient: \n', estimator.coef_)
+    print('Intercept: \n', estimator.intercept_)
     y_pred = estimator.predict(test.drop(['reordered'], axis=1))
 
     df = pd.DataFrame(columns=('user_id', 'product_id', 'ordered'))
