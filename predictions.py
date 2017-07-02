@@ -10,6 +10,7 @@ import time
 import os.path
 from sklearn.linear_model import LinearRegression
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import AdaBoostRegressor
 from sklearn.cross_validation import cross_val_score
 
@@ -48,22 +49,6 @@ prod_prior = [] #pd.read_csv('data\\order_products__prior.csv')
 prod_train = [] #pd.read_csv('data\\order_products__train.csv')
 orders = [] #pd.read_csv('data\\orders.csv')
 userproductstats = []
-
-
-## Save to postgres
-#aisles.to_sql("aisles", engine)
-#products.to_sql("products", postgresconnection)
-#departments.to_sql("departments", postgresconnection)
-#prod_prior.to_sql("prod_prior", postgresconnection, chunksize=1024, if_exists='append')
-#prod_train.to_sql("prod_train", postgresconnection, chunksize=1024)
-#orders.to_sql("orders", postgresconnection, chunksize=1024)
-
-
-# ideas:
-# - if an order happens on the same day as another, probably isn't for something that was in the other order
-# - if an item is ordered every time for a user, it's likely to be included
-# - if an item has a high reorder percentage for all users after first inclusion, inclusion more likely?
-# - if an item has a low reorder percentage for all users after first inclusion, inclusion not likely?
 
 
 
@@ -120,13 +105,8 @@ def addPercentages(user_id):
         allProducts.extend(products)
 
         orders.loc[orders.order_id == order_id, 'priorpercent'] = percentage
-
-        #orders[(orders["order_id"] == order_id)]["priorpercent"] = percentage
-
     userproducts[user_id] = allProducts
-    #orders[order_id]['priorpercent'] = 0.98
-    #orders[order_id]['immediatepriorpercent'] = 0.98
-    #user[user_id][product_id].frequency = 0.75
+
 
 def getUserProductStats(maxuser):
     query = "SELECT * FROM userproductview WHERE user_id < " + maxuser
@@ -172,24 +152,58 @@ def trainAndTestForSubmission():
 
 
 def generateDecisionTreePrediction():
-    print('Decision tree...')
+    print('\n##################\nDecision tree\n##################')
     estimator = DecisionTreeClassifier(max_leaf_nodes=10, random_state=0)
 
     train, test = trainAndTestForValidation()
-    X_train = train.drop(['reordered', 'order_days_since_prior_product_order'], axis=1)
+    X_train = train.drop(['reordered'], axis=1)
     y_train = train['reordered']
 
     estimator.fit(X_train, y_train)
     #y_pred = cross_val_score(estimator=estimator, X=X_train, y=y_train, cv=3, n_jobs=1) #returns 3 results
 
-    y_pred = estimator.predict(test.drop(['reordered', 'order_days_since_prior_product_order'], axis=1))
+    y_pred = estimator.predict(test.drop(['reordered'], axis=1))
     df = pd.DataFrame(columns=('user_id', 'product_id', 'ordered'))
     df['user_id'] = test['user_id']
     df['product_id'] = test['product_id']
     df['ordered'] = y_pred
-
     return df
 
+
+def generateLogisticRegressionPrediction():
+    print('\n##################\nLogistic Regression\n##################')
+    estimator = LogisticRegression()
+
+    train, test = trainAndTestForValidation()
+    X_train = train.drop(['reordered'], axis=1)
+    y_train = train['reordered']
+
+    estimator.fit(X_train, y_train)
+    y_pred = estimator.predict(test.drop(['reordered'], axis=1))
+
+    df = pd.DataFrame(columns=('user_id', 'product_id', 'ordered'))
+    df['user_id'] = test['user_id']
+    df['product_id'] = test['product_id']
+    df['ordered'] = y_pred
+    return df
+
+
+def generateLinearRegressionPrediction():
+    print('\n##################\nLinear Regression\n##################')
+    estimator = LinearRegression()
+
+    train, test = trainAndTestForValidation()
+    X_train = train.drop(['reordered'], axis=1)
+    y_train = train['reordered']
+
+    estimator.fit(X_train, y_train)
+    y_pred = estimator.predict(test.drop(['reordered'], axis=1))
+
+    df = pd.DataFrame(columns=('user_id', 'product_id', 'ordered'))
+    df['user_id'] = test['user_id']
+    df['product_id'] = test['product_id']
+    df['ordered'] = y_pred
+    return df
 
 
 
@@ -197,25 +211,11 @@ def generateRandomPrediction():
     randpred = pd.DataFrame(columns=('user_id', 'product_id', 'ordered'))
     debugWithTimer('reading distinct user products')
     userpriorproducts = userproductstats
-
-    #userpriorproducts = pd.read_sql('SELECT DISTINCT prod_prior.product_id, orders.user_id FROM prod_prior LEFT JOIN orders ON orders.order_id = prod_prior.order_id WHERE user_id < ' + maxuserid, postgresconnection)
-
-    #print(userpriorproducts.describe())
-
     debugWithTimer('iterating over prior products')
     temp = []
     for index, x in userpriorproducts.iterrows():
-        # print(x['user_id'])
-        # print(x['product_id'])
-        #randpred[x['user_id']] = (random.random() > 0.5)
-
         newline = { 'user_id': x['user_id'], 'product_id': x['product_id'], 'ordered': (random.random() > 0.5) }
         temp.append(newline)
-        #randpred.loc[len(randpred)] = [ x['user_id'], x['product_id'],(random.random() > 0.5) ]
-        #randpred.append(newline, ignore_index=True)
-        #randpred[x['user_id']][x['product_id']] = (random.random() > 0.5)
-        #print(randpred.size)
-
     randpred = randpred.append(temp)
 
     return randpred
@@ -227,17 +227,6 @@ def predictOverFrequencyThreshold(threshold):
 
     return userpriorproducts
 
-### END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS
-### END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS
-### END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS
-### END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS
-### END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS
-### END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS
-### END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS
-### END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS
-### END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS
-### END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS
-### END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS
 ### END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS
 
 
@@ -277,11 +266,16 @@ usersInTest = pd.read_sql("SELECT user_id, order_id FROM orders WHERE eval_set =
 #debugWithTimer("generating freq threshold prediction")
 #p2 = predictOverFrequencyThreshold(0.3)
 
-debugWithTimer("generating decision tree")
-p3=generateDecisionTreePrediction()
+# debugWithTimer("generating decision tree")
+# p3=generateDecisionTreePrediction()
 
+#debugWithTimer("generating logistic regression")
+#p4=generateLogisticRegressionPrediction()
 
-predictionToSaveFull = p3
+debugWithTimer("generating linear regression")
+p5=generateLinearRegressionPrediction()
+
+predictionToSaveFull = p5
 
 
 
