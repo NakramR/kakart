@@ -29,7 +29,7 @@ def debugWithTimer(message):
 start = time.perf_counter()
 lasttime = start
 
-maxuserid = '10'
+maxuserid = '100'
 #maxuserid = '1000'
 #maxuserid = '1000000000'
 
@@ -135,6 +135,13 @@ def getUserProductStats(maxuser):
 
     d = pd.merge(d, prod_train[['product_id', 'user_id','reordered']], on=['user_id', 'product_id'], how='left')
     d["reordered"].fillna(0, inplace=True)
+
+    # IMPUTATION
+    print('IMPUTATION')
+    missingValues(d)
+    d["order_days_since_prior_product_order"].fillna(0, inplace=True)
+    d["dayfrequency"].fillna(0, inplace=True)
+
     return d
 
 def missingValues(df):
@@ -173,7 +180,6 @@ def generateDecisionTreePrediction():
     y_train = train['reordered']
 
     estimator.fit(X_train, y_train)
-
     #y_pred = cross_val_score(estimator=estimator, X=X_train, y=y_train, cv=3, n_jobs=1) #returns 3 results
 
     y_pred = estimator.predict(test.drop(['reordered', 'order_days_since_prior_product_order'], axis=1))
@@ -261,11 +267,6 @@ debugWithTimer("getting test users")
 usersInTest = pd.read_sql("SELECT user_id, order_id FROM orders WHERE eval_set = 'test' AND user_id < " + maxuserid, postgresconnection)
 #print(usersInTest)
 
-#IMPUTATION
-print('IMPUTATION')
-missingValues(userproductstats)
-userproductstats["order_days_since_prior_product_order"].fillna(0, inplace=True)
-userproductstats["dayfrequency"].fillna(0, inplace=True)
 
 
 ## predictions
