@@ -1,10 +1,10 @@
 import petitchatbase as pcb
-import thebestpredictionsherenotintheotherone as bestpredictions
-import predictions as worstpredictions
+import thebestpredictionsherenotintheotherone as bla
+import predictions as predictions
 import numpy as np
 import pandas as pd
 
-pcb.maxuserid = '10000'
+pcb.maxuserid = '100'
 
 pcb.debugWithTimer("initializing data")
 pcb.initData(pcb.maxuserid)
@@ -19,18 +19,21 @@ train, test = pcb.trainAndTestForValidation()
 ## predictions
 
 pcb.debugWithTimer("generating random prediction")
-#p1 = bestpredictions.generateRandomPrediction()
+#p1 = bla.generateRandomPrediction()
 
 pcb.debugWithTimer("generating freq threshold prediction")
-p2 = bestpredictions.predictOverFrequencyThreshold(0.3)
+p2 = bla.predictOverFrequencyThreshold(0.3)
 
 pcb.debugWithTimer("generating decision tree prediction")
-p3 = worstpredictions.generateDecisionTreePrediction(train, test)
+p3 = predictions.generateDecisionTreePrediction(train, test)
 
+pcb.debugWithTimer("generating linear regression prediction")
+p4 = predictions.generateLinearRegressionPrediction(train, test)
 
+pcb.debugWithTimer("generating xgboost prediction")
+p5 = predictions.generateXGBoostPrediction(train, test)
 
-
-predictionToSaveFull = p3
+predictionToSaveFull = p4
 
 
 
