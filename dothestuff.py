@@ -3,8 +3,10 @@ import thebestpredictionsherenotintheotherone as bestpredictions
 import predictions as worstpredictions
 import numpy as np
 import pandas as pd
+import time
 
-pcb.maxuserid = '10000'
+#pcb.maxuserid = '10000'
+pcb.maxuserid = '1000000000'
 
 pcb.debugWithTimer("initializing data")
 pcb.initData(pcb.maxuserid)
@@ -87,3 +89,6 @@ else:
     print("No user, no predictions. Pbbbbbt")
 
 pcb.debugWithTimer("done")
+total = pcb.start - time.perf_counter()
+print("total time ", end='')
+print(total)
