@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import time
 
+#pcb.maxuserid = '100'
 #pcb.maxuserid = '10000'
 pcb.maxuserid = '1000000000'
 
@@ -29,14 +30,16 @@ p2 = bestpredictions.predictOverFrequencyThreshold(0.3)
 pcb.debugWithTimer("generating decision tree prediction")
 p3 = worstpredictions.generateDecisionTreePrediction(train, test)
 
-pcb.debugWithTimer("generating linear regression prediction")
-p4 = worstpredictions.generateLinearRegressionPrediction(train, test)
-
-pcb.debugWithTimer("generating xgboost prediction")
-p5 = worstpredictions.generateXGBoostPrediction(train, test)
-
+# pcb.debugWithTimer("generating linear regression prediction")
+# p4 = worstpredictions.generateLinearRegressionPrediction(train, test)
+#
+# pcb.debugWithTimer("generating xgboost prediction")
+# p5 = worstpredictions.generateXGBoostPrediction(train, test)
+#
 
 predictionToSaveFull = p3
+
+
 
 
 
@@ -56,7 +59,7 @@ csvToSave['productsx'] = csvToSave['predictions'].map(lambda x: ' '.join(str(xx)
 emptyUsers = []
 for user in pcb.usersInTest['user_id']:
     if user not in predictionToSaveTestOnly.keys():
-        emptyUsers.append( {'user_id': user, 'products' : 'None'})
+        emptyUsers.append( {'user_id': user, 'productsx' : 'None'})
 
 if len(emptyUsers) > 0:
     csvToSave = csvToSave.append(emptyUsers)
@@ -68,7 +71,11 @@ csvToSave = pd.merge(pcb.usersInTest, csvToSave, on='user_id')
 csvToSave['products'] = csvToSave['productsx'] # this is to make sure order_id is put in the CSV before products, as they are serialized in the order they are created in the dataframe
 
 pcb.debugWithTimer("saving CSV")
-csvToSave.to_csv('data\\myprediction1.csv', index=False, header=True, columns={'order_id', 'products'})
+csvWithCorrectColumns = pd.DataFrame()
+csvWithCorrectColumns['order_id'] = csvToSave['order_id']
+csvWithCorrectColumns['products'] = csvToSave['products']
+csvWithCorrectColumns.reindex(columns=['order_id', 'products']).to_csv('data\\myprediction1.csv', index=False, header=True, columns={'order_id', 'products'})
+#csvWithCorrectColumns.to_csv('data\\myprediction1.csv', index=False, header=True, columns={'order_id', 'products'})
 
 pcb.debugWithTimer("generating score estimate")
 usercount = 0
@@ -93,6 +100,6 @@ else:
     print("No user, no predictions. Pbbbbbt")
 
 pcb.debugWithTimer("done")
-total = pcb.start - time.perf_counter()
+total = time.perf_counter() - pcb.start
 print("total time ", end='')
 print(total)
