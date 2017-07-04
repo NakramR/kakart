@@ -77,6 +77,7 @@ csvWithCorrectColumns['products'] = csvToSave['products']
 csvWithCorrectColumns.reindex(columns=['order_id', 'products']).to_csv('data\\myprediction1.csv', index=False, header=True, columns={'order_id', 'products'})
 #csvWithCorrectColumns.to_csv('data\\myprediction1.csv', index=False, header=True, columns={'order_id', 'products'})
 
+
 pcb.debugWithTimer("generating score estimate")
 usercount = 0
 sumf1 = 0.0
