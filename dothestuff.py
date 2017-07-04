@@ -29,7 +29,11 @@ p2 = bestpredictions.predictOverFrequencyThreshold(0.3)
 pcb.debugWithTimer("generating decision tree prediction")
 p3 = worstpredictions.generateDecisionTreePrediction(train, test)
 
+pcb.debugWithTimer("generating linear regression prediction")
+p4 = predictions.generateLinearRegressionPrediction(train, test)
 
+pcb.debugWithTimer("generating xgboost prediction")
+p5 = predictions.generateXGBoostPrediction(train, test)
 
 
 predictionToSaveFull = p3
