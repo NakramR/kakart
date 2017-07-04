@@ -30,10 +30,10 @@ pcb.debugWithTimer("generating decision tree prediction")
 p3 = worstpredictions.generateDecisionTreePrediction(train, test)
 
 pcb.debugWithTimer("generating linear regression prediction")
-p4 = predictions.generateLinearRegressionPrediction(train, test)
+p4 = worstpredictions.generateLinearRegressionPrediction(train, test)
 
 pcb.debugWithTimer("generating xgboost prediction")
-p5 = predictions.generateXGBoostPrediction(train, test)
+p5 = worstpredictions.generateXGBoostPrediction(train, test)
 
 
 predictionToSaveFull = p3
