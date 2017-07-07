@@ -4,17 +4,21 @@ import predictions as worstpredictions
 import numpy as np
 import pandas as pd
 import time
+import random
 
+#pcb.maxuserid = '10'
 #pcb.maxuserid = '100'
-#pcb.maxuserid = '10000'
-pcb.maxuserid = '1000000000'
+pcb.maxuserid = '10000'
+#pcb.maxuserid = '1000000000'
+
+random.seed(42)
 
 pcb.debugWithTimer("initializing data")
 pcb.initData(pcb.maxuserid)
 
 pcb.debugWithTimer("splitting train/test orders")
 
-train, test = pcb.trainAndTestForValidation()
+pcb.train, pcb.test = pcb.trainAndTestForValidation()
 
 #print(usersInTest)
 
@@ -28,20 +32,22 @@ pcb.debugWithTimer("generating freq threshold prediction")
 p2 = bestpredictions.predictOverFrequencyThreshold(0.3)
 
 pcb.debugWithTimer("generating decision tree prediction")
-p3 = worstpredictions.generateDecisionTreePrediction(train, test)
+#p3 = worstpredictions.generateDecisionTreePrediction(pcb.train, pcb.test)
 
 # pcb.debugWithTimer("generating linear regression prediction")
-# p4 = worstpredictions.generateLinearRegressionPrediction(train, test)
+# p4 = worstpredictions.generateLinearRegressionPrediction(pcb.train, pcb.test)
 #
 # pcb.debugWithTimer("generating xgboost prediction")
-# p5 = worstpredictions.generateXGBoostPrediction(train, test)
+# p5 = worstpredictions.generateXGBoostPrediction(pcb.train, pcb.test)
 #
 
-predictionToSaveFull = p3
+for i in range(0, 20):
+     pcb.debugWithTimer("generating freq threshold prediction + " + str(i*0.05))
+     p2 = bestpredictions.predictOverFrequencyThreshold(i*0.05)
+     pcb.debugWithTimer("scoring p2: "+ str(i*0.05))
+     pcb.scorePrediction(p2)
 
-
-
-
+predictionToSaveFull = p2
 
 pcb.debugWithTimer("creating CSV")
 predictionToSaveFull = predictionToSaveFull[predictionToSaveFull['ordered'] == True]
@@ -79,26 +85,27 @@ csvWithCorrectColumns.reindex(columns=['order_id', 'products']).to_csv('data\\my
 
 
 pcb.debugWithTimer("generating score estimate")
-usercount = 0
-sumf1 = 0.0
-myprediction = predictionToSaveFull.groupby('user_id')['product_id'].apply(list)
-for index, x in pcb.truthPerUser.iteritems():
-
-    if index in train['user_id'].values:
-        continue
-
-    usercount = usercount +1
-
-    #if myprediction.__contains__(index) == True:
-    if index in myprediction:
-        xx = pcb.eval_fun(pcb.truthPerUser[index],myprediction[index])
-        sumf1 = sumf1 + xx[2]
-
-if usercount != 0:
-    sumf1 = sumf1/usercount
-    print(sumf1)
-else:
-    print("No user, no predictions. Pbbbbbt")
+pcb.scorePrediction(predictionToSaveFull)
+# usercount = 0
+# sumf1 = 0.0
+# myprediction = predictionToSaveFull.groupby('user_id')['product_id'].apply(list)
+# for index, x in pcb.truthPerUser.iteritems():
+#
+#     if index in pcb.train['user_id'].values:
+#         continue
+#
+#     usercount = usercount +1
+#
+#     #if myprediction.__contains__(index) == True:
+#     if index in myprediction:
+#         xx = pcb.eval_fun(pcb.truthPerUser[index],myprediction[index])
+#         sumf1 = sumf1 + xx[2]
+#
+# if usercount != 0:
+#     sumf1 = sumf1/usercount
+#     print(sumf1)
+# else:
+#     print("No user, no predictions. Pbbbbbt")
 
 pcb.debugWithTimer("done")
 total = time.perf_counter() - pcb.start

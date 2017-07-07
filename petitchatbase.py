@@ -20,6 +20,14 @@ def debugWithTimer(message):
         print(message + "... ", end='', flush=True )
         lasttime = time.perf_counter()
 
+def deterministic_train_test_split(list, test_size):
+    random.shuffle(list)
+    cutoff = int(len(list)*test_size)
+    test = list[:cutoff]
+    train = list[cutoff:]
+
+    return train, test
+
 
 maxuserid = '10'
 #maxuserid = '1000'
@@ -127,6 +135,36 @@ def eval_fun(labels, preds):
     return (precision, recall, f1)
 
 
+def scorePrediction(predictionperitem):
+    global truthPerUser, train
+    usercount = 0
+    sumf1 = 0.0
+
+    myprediction = predictionperitem[predictionperitem['ordered'] == True]
+    myprediction = myprediction.groupby('user_id')['product_id'].apply(list)
+    uniquetrainusers = train['user_id'].unique()
+
+    for index, x in truthPerUser.iteritems():
+
+        if index in uniquetrainusers:
+            continue
+
+        usercount = usercount + 1
+
+        # if myprediction.__contains__(index) == True:
+        if index in myprediction:
+            xx = eval_fun(truthPerUser[index], myprediction[index])
+            sumf1 = sumf1 + xx[2]
+
+    if usercount != 0:
+        sumf1 = sumf1 / usercount
+        print(sumf1)
+    else:
+        print("No user, no predictions. Pbbbbbt")
+
+    return sumf1
+
+
 def addPercentages(user_id):
     global orders, allproductorders, userproducts
     orderIdsByUser = orders[orders["user_id"] == user_id].sort_values(by='order_number').order_id
@@ -182,7 +220,7 @@ def trainAndTestForValidation():
 
     uniqueusers = originalTrain['user_id'].unique()
 
-    trainUsers, testUsers = train_test_split(uniqueusers, test_size=0.2)
+    trainUsers, testUsers = deterministic_train_test_split(uniqueusers, test_size=0.2)
 
     train = originalTrain[originalTrain['user_id'].isin(trainUsers)]
     test = originalTrain[~originalTrain['user_id'].isin(trainUsers)]
