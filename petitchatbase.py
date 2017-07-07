@@ -8,6 +8,7 @@ from sqlalchemy import create_engine
 import sklearn
 import time
 import os.path
+from sklearn.metrics import f1_score
 
 random.seed(42)
 pd.set_option('display.float_format', lambda x: '%.3f' % x)
@@ -139,10 +140,15 @@ def scorePrediction(predictionperitem):
     global truthPerUser, train
     usercount = 0
     sumf1 = 0.0
+    sumf1x = 0.0
 
     myprediction = predictionperitem[predictionperitem['ordered'] == True]
     myprediction = myprediction.groupby('user_id')['product_id'].apply(list)
     uniquetrainusers = train['user_id'].unique()
+
+    uniqueproductperuser = userproductstats.groupby('user_id')['product_id'].unique()
+
+
 
     for index, x in truthPerUser.iteritems():
 
@@ -151,14 +157,26 @@ def scorePrediction(predictionperitem):
 
         usercount = usercount + 1
 
-        # if myprediction.__contains__(index) == True:
         if index in myprediction:
+            #eval_fun
             xx = eval_fun(truthPerUser[index], myprediction[index])
             sumf1 = sumf1 + xx[2]
 
+            #sklearn f1 score
+            fulluserprods = set().union(list(uniqueproductperuser[index]),list(myprediction[index]))
+
+            bPred = list(i in myprediction[index] for i in fulluserprods)
+            bTruth = list(i in truthPerUser[index] for i in fulluserprods)
+
+            sumf1x = sumf1x + sklearn.metrics.f1_score(bTruth, bPred)
+
     if usercount != 0:
         sumf1 = sumf1 / usercount
-        print(sumf1)
+        sumf1x = sumf1x / usercount
+        print(" Scoring :eval_fun:", end='')
+        print(sumf1, end='')
+        print(" sklearn.f1:", end='')
+        print(sumf1x)
     else:
         print("No user, no predictions. Pbbbbbt")
 

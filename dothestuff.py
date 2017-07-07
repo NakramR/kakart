@@ -32,20 +32,27 @@ pcb.debugWithTimer("generating freq threshold prediction")
 p2 = bestpredictions.predictOverFrequencyThreshold(0.3)
 
 pcb.debugWithTimer("generating decision tree prediction")
-#p3 = worstpredictions.generateDecisionTreePrediction(pcb.train, pcb.test)
+p3 = worstpredictions.generateDecisionTreePrediction(pcb.train, pcb.test)
 
-# pcb.debugWithTimer("generating linear regression prediction")
-# p4 = worstpredictions.generateLinearRegressionPrediction(pcb.train, pcb.test)
-#
-# pcb.debugWithTimer("generating xgboost prediction")
-# p5 = worstpredictions.generateXGBoostPrediction(pcb.train, pcb.test)
-#
+pcb.debugWithTimer("generating linear regression prediction")
+p4 = worstpredictions.generateLinearRegressionPrediction(pcb.train, pcb.test)
+
+pcb.debugWithTimer("generating xgboost prediction")
+p5 = worstpredictions.generateXGBoostPrediction(pcb.train, pcb.test)
 
 for i in range(0, 20):
      pcb.debugWithTimer("generating freq threshold prediction + " + str(i*0.05))
      p2 = bestpredictions.predictOverFrequencyThreshold(i*0.05)
      pcb.debugWithTimer("scoring p2: "+ str(i*0.05))
      pcb.scorePrediction(p2)
+
+pcb.debugWithTimer("scoring p3: ")
+pcb.scorePrediction(p3)
+pcb.debugWithTimer("scoring p4: ")
+pcb.scorePrediction(p4)
+pcb.debugWithTimer("scoring p5: ")
+pcb.scorePrediction(p5)
+
 
 predictionToSaveFull = p2
 
