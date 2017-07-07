@@ -21,6 +21,7 @@ def debugWithTimer(message):
         print(message + "... ", end='', flush=True )
         lasttime = time.perf_counter()
 
+# because sklearn's has its own random seed.
 def deterministic_train_test_split(list, test_size):
     random.shuffle(list)
     cutoff = int(len(list)*test_size)
@@ -31,9 +32,6 @@ def deterministic_train_test_split(list, test_size):
 
 
 maxuserid = '10'
-#maxuserid = '1000'
-#maxuserid = '1000000000'
-
 
 start = time.perf_counter()
 lasttime = start
@@ -145,10 +143,7 @@ def scorePrediction(predictionperitem):
     myprediction = predictionperitem[predictionperitem['ordered'] == True]
     myprediction = myprediction.groupby('user_id')['product_id'].apply(list)
     uniquetrainusers = train['user_id'].unique()
-
-    uniqueproductperuser = userproductstats.groupby('user_id')['product_id'].unique()
-
-
+    uniqueproductperuser = userproductstats.groupby('user_id')['product_id'].unique() #past products only
 
     for index, x in truthPerUser.iteritems():
 
@@ -163,8 +158,11 @@ def scorePrediction(predictionperitem):
             sumf1 = sumf1 + xx[2]
 
             #sklearn f1 score
+            # get the full product list, including entirely new products that were not present in training data
             fulluserprods = set().union(list(uniqueproductperuser[index]),list(myprediction[index]))
 
+            # get a boolean match between truth & full product list
+            # get a boolean match between prediction & full product list
             bPred = list(i in myprediction[index] for i in fulluserprods)
             bTruth = list(i in truthPerUser[index] for i in fulluserprods)
 
@@ -180,7 +178,7 @@ def scorePrediction(predictionperitem):
     else:
         print("No user, no predictions. Pbbbbbt")
 
-    return sumf1
+    return sumf1, sumf1x
 
 
 def addPercentages(user_id):
