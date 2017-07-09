@@ -7,7 +7,6 @@ import petitchatbase as pcb
 import numpy as np
 from xgboost import XGBClassifier
 from sklearn.metrics import accuracy_score
-from collections import Counter
 
 random.seed(42)
 pd.set_option('display.float_format', lambda x: '%.3f' % x)
@@ -28,11 +27,10 @@ def generateDecisionTreePrediction(train, test):
     #y_pred = cross_val_score(estimator=estimator, X=X_train, y=y_train, cv=3, n_jobs=1) #returns 3 results
 
     y_pred = estimator.predict(test.drop(['reordered'], axis=1))
-    df = pd.DataFrame(columns=('user_id', 'product_id', 'ordered'))
+    df = pd.DataFrame(columns=('user_id', 'product_id', 'predy'))
     df['user_id'] = test['user_id']
     df['product_id'] = test['product_id']
-    df['ordered'] = y_pred
-    print('Prediction data: %s, frequency: %s ' % (y_pred, Counter(y_pred)))
+    df['predy'] = y_pred
     return df
 
 
@@ -46,11 +44,10 @@ def generateLogisticRegressionPrediction(train, test):
     estimator.fit(X_train, y_train)
     y_pred = estimator.predict(test.drop(['reordered'], axis=1))
 
-    df = pd.DataFrame(columns=('user_id', 'product_id', 'ordered'))
+    df = pd.DataFrame(columns=('user_id', 'product_id', 'predy'))
     df['user_id'] = test['user_id']
     df['product_id'] = test['product_id']
-    df['ordered'] = y_pred
-    print('Prediction data: %s, frequency: %s ' % (y_pred, Counter(y_pred)))
+    df['predy'] = y_pred
     return df
 
 
@@ -68,11 +65,10 @@ def generateLinearRegressionPrediction(train, test):
     print('Intercept: \n', estimator.intercept_)
     y_pred = estimator.predict(test.drop(['reordered'], axis=1))
 
-    df = pd.DataFrame(columns=('user_id', 'product_id', 'ordered'))
+    df = pd.DataFrame(columns=('user_id', 'product_id', 'predy'))
     df['user_id'] = test['user_id']
     df['product_id'] = test['product_id']
-    df['ordered'] = y_pred
-    print('Prediction data: %s, frequency: %s ' % (y_pred, Counter(y_pred)))
+    df['predy'] = y_pred
     return df
 
 
@@ -87,11 +83,10 @@ def generateXGBoostPrediction(train, test):
     estimator.fit(X_train, y_train)
     y_pred = estimator.predict(test.drop(['reordered'], axis=1))
 
-    df = pd.DataFrame(columns=('user_id', 'product_id', 'ordered'))
+    df = pd.DataFrame(columns=('user_id', 'product_id', 'predy'))
     df['user_id'] = test['user_id']
     df['product_id'] = test['product_id']
-    df['ordered'] = y_pred
-    print('Prediction data: %s, frequency: %s ' % (y_pred, Counter(y_pred)))
+    df['predy'] = y_pred
     return df
 
 

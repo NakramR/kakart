@@ -6,17 +6,16 @@ from sklearn import model_selection
 from sklearn.linear_model import LogisticRegression
 import tensorflow as tf
 import numpy as np
-from collections import Counter
 
 def generateRandomPrediction():
-    randpred = pd.DataFrame(columns=('user_id', 'product_id', 'ordered'))
+    randpred = pd.DataFrame(columns=('user_id', 'product_id', 'predy'))
     pcb.debugWithTimer('reading distinct user products')
     userpriorproducts = pcb.userproductstats
 
     pcb.debugWithTimer('iterating over prior products')
     temp = []
     for index, x in userpriorproducts.iterrows():
-        newline = { 'user_id': x['user_id'], 'product_id': x['product_id'], 'ordered': (random.random() > 0.5) }
+        newline = { 'user_id': x['user_id'], 'product_id': x['product_id'], 'predy': (random.random() > 0.5) }
         temp.append(newline)
 
     randpred = randpred.append(temp)
@@ -26,9 +25,9 @@ def generateRandomPrediction():
 def predictOverFrequencyThreshold(threshold):
     userpriorproducts = pcb.userproductstats
 
-    userpriorproducts['ordered'] = userpriorproducts['orderfrequency'] > threshold
+    userpriorproducts['predy'] = userpriorproducts['orderfrequency'] > threshold
 
-    #userpriorproducts['ordered'] = userpriorproducts.query("orderfrequency > " + str(threshold) + " or (dayfrequency > days_without_product_order + eval_days_since_prior_order)")
+    #userpriorproducts['predy'] = userpriorproducts.query("orderfrequency > " + str(threshold) + " or (dayfrequency > days_without_product_order + eval_days_since_prior_order)")
 
     return userpriorproducts
 
@@ -53,10 +52,10 @@ def sLogistic(train, test):
     y_pred = model.predict(test[features])
     #y_pred = model.predict(test.drop(['reordered'], axis=1))
 
-    df = pd.DataFrame(columns=('user_id', 'product_id', 'ordered'))
+    df = pd.DataFrame(columns=('user_id', 'product_id', 'predy'))
     df['user_id'] = test['user_id']
     df['product_id'] = test['product_id']
-    df['ordered'] = y_pred
+    df['predy'] = y_pred
     return df
 
 def myFirstNN(train, test):
@@ -135,7 +134,6 @@ def myFirstNN(train, test):
 
         #print(tf.reduce_mean(tf.cast(tf.equal(tf.argmax(output,1),tf.argmax(y_test)),'float')).eval(feed_dict={inputPlaceholder:x_test}))
         o = prediction.eval(feed_dict={inputPlaceholder:x_test})
-        print('Prediction data: %s, frequency: %s ' % (o, Counter(o)))
 
     # features = np.array(list(features))
     # # pos: [1,0] , argmax: 0
@@ -146,8 +144,8 @@ def myFirstNN(train, test):
     # elif result[0] == 1:
     #     print('Negative:', input_data)
 
-    df = pd.DataFrame(columns=('user_id', 'product_id', 'ordered'))
+    df = pd.DataFrame(columns=('user_id', 'product_id', 'predy'))
     df['user_id'] = test['user_id']
     df['product_id'] = test['product_id']
-    df['ordered'] = o
+    df['predy'] = o
     return df

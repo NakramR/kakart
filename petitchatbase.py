@@ -9,6 +9,8 @@ import sklearn
 import time
 import os.path
 from sklearn.metrics import f1_score
+from collections import Counter
+
 
 random.seed(42)
 pd.set_option('display.float_format', lambda x: '%.3f' % x)
@@ -51,7 +53,7 @@ prod_train = [] #pd.read_csv('data\\order_products__train.csv')
 orders = [] #pd.read_csv('data\\orders.csv')
 userproductstats = []
 truth = []
-truthPerUser = []
+truthperuser = []
 usersInTest = []
 
 
@@ -91,7 +93,7 @@ test = []
 
 
 def initData(maxusers):
-    global prod_prior, prod_train, orders, userproductstats, truth, truthPerUser, usersInTest
+    global prod_prior, prod_train, orders, userproductstats, truth, truthperuser, usersInTest
 
     if os.path.isfile('data\\cache\\prod_prior' + maxusers + '.csv'):
         prod_prior = pd.read_csv('data\\cache\\prod_prior' + maxusers + '.csv')
@@ -120,7 +122,7 @@ def initData(maxusers):
         truth.to_csv('data\\cache\\truth' + maxusers + '.csv')
         usersInTest.to_csv('data\\cache\\usersintest' + maxusers + '.csv')
 
-    truthPerUser = truth.groupby('user_id')['product_id'].apply(list)
+    truthperuser = truth.groupby('user_id')['product_id'].apply(list)
 
 
 def eval_fun(labels, preds):
@@ -135,17 +137,19 @@ def eval_fun(labels, preds):
 
 
 def scorePrediction(predictionperitem):
-    global truthPerUser, train
+    global truthperuser, train
     usercount = 0
     sumf1 = 0.0
     sumf1x = 0.0
 
-    myprediction = predictionperitem[predictionperitem['ordered'] == True]
+    myprediction = predictionperitem[predictionperitem['predy'] == True]
     myprediction = myprediction.groupby('user_id')['product_id'].apply(list)
     uniquetrainusers = train['user_id'].unique()
     uniqueproductperuser = userproductstats.groupby('user_id')['product_id'].unique() #past products only
 
-    for index, x in truthPerUser.iteritems():
+    print('Prediction frequency: %s ' % Counter(predictionperitem['predy']))
+
+    for index, x in truthperuser.iteritems():
 
         if index in uniquetrainusers:
             continue
@@ -154,7 +158,7 @@ def scorePrediction(predictionperitem):
 
         if index in myprediction:
             #eval_fun
-            xx = eval_fun(truthPerUser[index], myprediction[index])
+            xx = eval_fun(truthperuser[index], myprediction[index])
             sumf1 = sumf1 + xx[2]
 
             #sklearn f1 score
@@ -164,7 +168,7 @@ def scorePrediction(predictionperitem):
             # get a boolean match between truth & full product list
             # get a boolean match between prediction & full product list
             bPred = list(i in myprediction[index] for i in fulluserprods)
-            bTruth = list(i in truthPerUser[index] for i in fulluserprods)
+            bTruth = list(i in truthperuser[index] for i in fulluserprods)
 
             sumf1x = sumf1x + sklearn.metrics.f1_score(bTruth, bPred)
 
