@@ -157,9 +157,14 @@ def myFirstNN(train, test):
         print('Generating graphic...')
         fig, ax = plt.subplots()
         ax2 = ax.twinx()
-        sns.pointplot(x='index', y='accuracy', data=graph, color='blue', ax=ax, label = 'accuracy')
-        sns.pointplot(x='index', y='error', data=graph, color='green',ax=ax2, label = 'error')
-        #plt.legend(loc='upper right')
+
+        sns.pointplot(x='index', y='accuracy', data=graph, color='blue', ax=ax, label = 'Accuracy')
+        sns.pointplot(x='index', y='error', data=graph, color='green',ax=ax2, label = 'Error')
+        #ax.legend()
+        plt.legend(loc='upper right')
+        labels = ax.get_xticklabels()
+        ax.set_xticklabels(labels, rotation=45)
+
         plt.xticks(rotation=45)
         plt.show()
 
