@@ -6,6 +6,8 @@ from sklearn import model_selection
 from sklearn.linear_model import LogisticRegression
 import tensorflow as tf
 import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 def generateRandomPrediction():
     randpred = pd.DataFrame(columns=('user_id', 'product_id', 'predy'))
@@ -133,6 +135,9 @@ def myFirstNN(train, test):
 
         batchSize = 100
         curStep = 1
+
+
+        graph = pd.DataFrame(columns=['index', 'accuracy', 'error']);
         for curStep in range(1,int(len(y_train)/batchSize)+1):
             batch_x = x_train[(curStep-1)*100:(curStep)*100]
             batch_y = y_train[(curStep-1)*100:(curStep)*100]
@@ -143,9 +148,18 @@ def myFirstNN(train, test):
             optimizer.run(feed_dict=trainData)
 
             acc, err = s.run([accuracy, cost], feed_dict=trainData)
+            graph.loc[len(graph)] = [curStep, acc, err]
 
             #xxx = accuracy.eval({inputPlaceholder: batch_x, truthYPlaceholder: batch_y})
             print('Accuracy on self: %s error:%s ' % (str(acc), str(err)))
+
+        fig, ax = plt.subplots()
+        ax2 = ax.twinx()
+        sns.pointplot(x='index', y='accuracy', data=graph, color='blue', ax=ax, label = 'accuracy')
+        sns.pointplot(x='index', y='error', data=graph, color='green',ax=ax2, label = 'error')
+        #plt.legend(loc='upper right')
+        plt.xticks(rotation=45)
+        plt.show()
 
         x_test = test[features]
         y_test = test[['reordered']]
