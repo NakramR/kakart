@@ -145,7 +145,7 @@ def myFirstNN(train, test):
             acc, err = s.run([accuracy, cost], feed_dict=trainData)
 
             #xxx = accuracy.eval({inputPlaceholder: batch_x, truthYPlaceholder: batch_y})
-            print('Accuracy on self: %s error:%s' % acc, err)
+            print('Accuracy on self: %s error:%s ' % (str(acc), str(err)))
 
         x_test = test[features]
         y_test = test[['reordered']]
