@@ -5,11 +5,15 @@ import numpy as np
 import pandas as pd
 import time
 import random
+import sys
 
 #pcb.maxuserid = '10'
 pcb.maxuserid = '100'
 #pcb.maxuserid = '10000'
 #pcb.maxuserid = '1000000000'
+
+if sys.argv[1]:
+    pcb.maxuserid = str(sys.argv[1])
 
 random.seed(42)
 
@@ -43,7 +47,7 @@ pcb.train, pcb.test = pcb.trainAndTestForValidation()
 #pcb.debugWithTimer("generating xgboost prediction")
 #p6 = bestpredictions.sLogistic(pcb.train, pcb.test)
 
-print(pcb.train['user_id'].unique())
+#print(pcb.train['user_id'].unique())
 
 pcb.debugWithTimer("generating myFirstNN prediction")
 p7 = bestpredictions.myFirstNN(pcb.train, pcb.test)
