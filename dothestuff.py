@@ -28,8 +28,8 @@ pcb.train, pcb.test = pcb.trainAndTestForValidation()
 #pcb.debugWithTimer("generating random prediction")
 #p1 = bestpredictions.generateRandomPrediction()
 
-# pcb.debugWithTimer("generating freq threshold prediction")
-# p2 = bestpredictions.predictOverFrequencyThreshold(0.35)
+#pcb.debugWithTimer("generating freq threshold prediction")
+#p2 = bestpredictions.predictOverFrequencyThreshold(0.35)
 #
 # pcb.debugWithTimer("generating decision tree prediction")
 # p3 = worstpredictions.generateDecisionTreePrediction(pcb.train, pcb.test)
@@ -50,7 +50,9 @@ p7 = bestpredictions.myFirstNN(pcb.train, pcb.test)
 #      pcb.debugWithTimer("generating freq threshold prediction + " + str(i*0.05))
 #      p2 = bestpredictions.predictOverFrequencyThreshold(i*0.05)
 #      pcb.debugWithTimer("scoring p2: "+ str(i*0.05))
-#      pcb.scorePrediction(p2)
+
+
+pcb.scorePrediction(p2)
 
 # pcb.debugWithTimer("scoring p3: ")
 # pcb.scorePrediction(p3)

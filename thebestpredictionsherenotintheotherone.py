@@ -35,8 +35,8 @@ def sLogistic(train, test):
     print('\n##################\nStephan''s Logistic\n##################')
 
     #X_train = train.drop(['reordered'], axis=1)
-    #features = ['orderfrequency', 'dayfrequency', 'department_id', 'aisle_id', 'days_without_product_order','eval_days_since_prior_order']
-    features = ['orderfrequency']
+    features = ['orderfrequency', 'dayfrequency', 'department_id', 'aisle_id', 'days_without_product_order','eval_days_since_prior_order']
+    #features = ['orderfrequency']
     X_train = train[features]
     Y_train = train['reordered']
 
@@ -63,26 +63,33 @@ def myFirstNN(train, test):
     nbfeatures = len(features)
 
     x_train = train[features]
-    y_train = train[['reordered']] # this needs to be 1 column wide, not a list
+    #y_train = train[['reordered']] # this needs to be 1 column wide, not a list
+
+    y_train = np.column_stack(
+                (list(float(i) for i in train['reordered']),
+                 list(float(not (i)) for i in train['reordered'])))
+
+    #y_train['newcolumn3'] = list(float(not(i)) for i in y_train['reordered'].values)
 
     # define input and output
     inputPlaceholder = tf.placeholder('float', [None, nbfeatures])
-    outputPlaceholder = tf.placeholder('float', [None,1])
+    outputPlaceholder = tf.placeholder('float', [None,2])
 
 
     # just some json definitions of what the layers are
     hiddenLayer1Definition = {'weights':tf.Variable(tf.random_normal([nbfeatures,50]))
                              ,'biases':tf.Variable(tf.random_normal([50]))}
 
-    outputLayerDefinition = {'weights':tf.Variable(tf.random_normal([50,1])),
-                             'biases': tf.Variable(tf.random_normal([1]))}
+    outputLayerDefinition = {'weights':tf.Variable(tf.random_normal([50,2])),
+                             'biases': tf.Variable(tf.random_normal([2]))}
 
     #create layer from input to next layer
     l1 = tf.add(tf.matmul(inputPlaceholder, hiddenLayer1Definition['weights']), hiddenLayer1Definition['biases'])
     l1 = tf.nn.relu(l1)
 
     #the output is also the model we're going to run (any layer can apparently be)
-    output = tf.nn.softmax(tf.matmul(l1, outputLayerDefinition['weights']))
+    #output = tf.nn.softmax(tf.matmul(l1, outputLayerDefinition['weights']))
+    output = tf.matmul(l1, outputLayerDefinition['weights'])
 
     #give the cost function for optimizer
     cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=output, labels=outputPlaceholder))
@@ -94,6 +101,8 @@ def myFirstNN(train, test):
     #set the prediction and truth values
     prediction = tf.argmax(output,1)
     trainingtruth = tf.argmax(y_train,1)
+    #prediction = output
+    #trainingtruth = tf.cast(y_train,'float')
 
     #define correctness
     correct = tf.equal(prediction, trainingtruth)
