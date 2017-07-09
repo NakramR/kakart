@@ -139,7 +139,6 @@ def myFirstNN(train, test):
         batchSize = 100
         curStep = 1
 
-
         graph = pd.DataFrame(columns=['index', 'accuracy', 'error']);
         for curStep in range(1,int(len(y_train)/batchSize)+1):
             batch_x = x_train[(curStep-1)*100:(curStep)*100]
