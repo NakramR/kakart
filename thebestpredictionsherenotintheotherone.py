@@ -62,6 +62,8 @@ def myFirstNN(train, test):
     features = ['orderfrequency', 'dayfrequency', 'department_id', 'aisle_id', 'orderfrequency', 'days_without_product_order','eval_days_since_prior_order']
     nbfeatures = len(features)
 
+    tf.set_random_seed(42)
+
     x_train = train[features]
     #y_train = train[['reordered']] # this needs to be 1 column wide, not a list
 
@@ -116,7 +118,9 @@ def myFirstNN(train, test):
     # #optimizer.run(feed_dict={inputPlaceholder: x_train, outputPlaceholder: y_train})
     # xxx = sess.run(accuracy.eval({inputPlaceholder: x_train , outputPlaceholder: y_train}))
 
+
     with tf.Session() as s:
+        tf.set_random_seed(42)
         tf.global_variables_initializer().run()
         optimizer.run(feed_dict={inputPlaceholder: x_train , outputPlaceholder: y_train})
 
@@ -128,7 +132,7 @@ def myFirstNN(train, test):
         y_test = test[['reordered']]
         #print('Accuracy on test:', accuracy.eval({inputPlaceholder: x_test , outputPlaceholder: y_test}))
 
-        print(tf.reduce_mean(tf.cast(tf.equal(tf.argmax(output,1),tf.argmax(y_test)),'float')).eval(feed_dict={inputPlaceholder:x_test}))
+        #print(tf.reduce_mean(tf.cast(tf.equal(tf.argmax(output,1),tf.argmax(y_test)),'float')).eval(feed_dict={inputPlaceholder:x_test}))
         o = prediction.eval(feed_dict={inputPlaceholder:x_test})
         print(o)
 

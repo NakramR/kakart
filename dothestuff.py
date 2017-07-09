@@ -43,6 +43,8 @@ pcb.train, pcb.test = pcb.trainAndTestForValidation()
 #pcb.debugWithTimer("generating xgboost prediction")
 #p6 = bestpredictions.sLogistic(pcb.train, pcb.test)
 
+print(pcb.train['user_id'].unique())
+
 pcb.debugWithTimer("generating myFirstNN prediction")
 p7 = bestpredictions.myFirstNN(pcb.train, pcb.test)
 
@@ -52,7 +54,7 @@ p7 = bestpredictions.myFirstNN(pcb.train, pcb.test)
 #      pcb.debugWithTimer("scoring p2: "+ str(i*0.05))
 
 
-pcb.scorePrediction(p2)
+#pcb.scorePrediction(p2)
 
 # pcb.debugWithTimer("scoring p3: ")
 # pcb.scorePrediction(p3)
@@ -60,7 +62,7 @@ pcb.scorePrediction(p2)
 # pcb.scorePrediction(p4)
 # pcb.debugWithTimer("scoring p5: ")
 # pcb.scorePrediction(p5)
-pcb.debugWithTimer("scoring p6: ")
+pcb.debugWithTimer("scoring p7: ")
 pcb.scorePrediction(p7)
 
 
