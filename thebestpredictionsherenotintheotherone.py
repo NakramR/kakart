@@ -59,7 +59,9 @@ def sLogistic(train, test):
     return df
 
 def myFirstNN(train, test):
-    features = ['orderfrequency', 'dayfrequency', 'department_id', 'aisle_id', 'orderfrequency', 'days_without_product_order','eval_days_since_prior_order']
+    #features = ['orderfrequency', 'dayfrequency', 'department_id', 'aisle_id', 'orderfrequency', 'days_without_product_order','eval_days_since_prior_order']
+    features = ['orderfrequency']
+
     nbfeatures = len(features)
 
     tf.set_random_seed(42)
@@ -75,7 +77,7 @@ def myFirstNN(train, test):
 
     # define input and output
     inputPlaceholder = tf.placeholder('float', [None, nbfeatures])
-    outputPlaceholder = tf.placeholder('float', [None,2])
+    truthYPlaceholder = tf.placeholder('float', [None,2])
 
 
     # just some json definitions of what the layers are
@@ -98,7 +100,7 @@ def myFirstNN(train, test):
     output = tf.matmul(previousLayer, outputLayerDefinition['weights'])
 
     #give the cost function for optimizer
-    cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=output, labels=outputPlaceholder))
+    cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=output, labels=truthYPlaceholder))
 
     # create the optimizer
     optimizer = tf.train.AdamOptimizer().minimize(cost)
@@ -106,7 +108,7 @@ def myFirstNN(train, test):
 
     #set the prediction and truth values
     prediction = tf.argmax(output,1)
-    trainingtruth = tf.argmax(y_train,1)
+    trainingtruth = tf.argmax(truthYPlaceholder,1)
     #prediction = output
     #trainingtruth = tf.cast(y_train,'float')
 
@@ -118,23 +120,34 @@ def myFirstNN(train, test):
 
     # sess = tf.Session()
     # sess.run(tf.global_variables_initializer())
-    # sess.run([optimizer, cost], feed_dict={inputPlaceholder: x_train , outputPlaceholder: y_train})
-    # #optimizer.run(feed_dict={inputPlaceholder: x_train, outputPlaceholder: y_train})
-    # xxx = sess.run(accuracy.eval({inputPlaceholder: x_train , outputPlaceholder: y_train}))
+    # sess.run([optimizer, cost], feed_dict={inputPlaceholder: x_train , truthYPlaceholder: y_train})
+    # #optimizer.run(feed_dict={inputPlaceholder: x_train, truthYPlaceholder: y_train})
+    # xxx = sess.run(accuracy.eval({inputPlaceholder: x_train , truthYPlaceholder: y_train}))
 
 
     with tf.Session() as s:
         tf.set_random_seed(42)
         tf.global_variables_initializer().run()
-        optimizer.run(feed_dict={inputPlaceholder: x_train , outputPlaceholder: y_train})
 
-        xxx = accuracy.eval({inputPlaceholder: x_train, outputPlaceholder: y_train})
+        batchSize = 100
+        curStep = 1
+        for curStep in range(1,int(len(y_train)/batchSize)+1):
+            batch_x = x_train[(curStep-1)*100:(curStep)*100]
+            batch_y = y_train[(curStep-1)*100:(curStep)*100]
 
-        print('Accuracy on self:', xxx)
+            # train
+            trainData = {inputPlaceholder: batch_x , truthYPlaceholder: batch_y}
+
+            optimizer.run(feed_dict=trainData)
+
+            acc, err = s.run([accuracy, cost], feed_dict=trainData)
+
+            #xxx = accuracy.eval({inputPlaceholder: batch_x, truthYPlaceholder: batch_y})
+            print('Accuracy on self: %s error:%s' % acc, err)
 
         x_test = test[features]
         y_test = test[['reordered']]
-        #print('Accuracy on test:', accuracy.eval({inputPlaceholder: x_test , outputPlaceholder: y_test}))
+        #print('Accuracy on test:', accuracy.eval({inputPlaceholder: x_test , truthYPlaceholder: y_test}))
 
         #print(tf.reduce_mean(tf.cast(tf.equal(tf.argmax(output,1),tf.argmax(y_test)),'float')).eval(feed_dict={inputPlaceholder:x_test}))
         o = prediction.eval(feed_dict={inputPlaceholder:x_test})
@@ -153,3 +166,4 @@ def myFirstNN(train, test):
     df['product_id'] = test['product_id']
     df['predy'] = o
     return df
+
