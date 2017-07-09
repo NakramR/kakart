@@ -79,8 +79,10 @@ def myFirstNN(train, test):
 
 
     # just some json definitions of what the layers are
-    hiddenLayer1Definition = {'weights':tf.Variable(tf.random_normal([nbfeatures,50]))
-                             ,'biases':tf.Variable(tf.random_normal([50]))}
+    hiddenLayerDefinitions = [{'weights':tf.Variable(tf.random_normal([nbfeatures,50])),'biases':tf.Variable(tf.random_normal([50]))}
+                              ,
+                              ,
+                             ]
 
     outputLayerDefinition = {'weights':tf.Variable(tf.random_normal([50,2])),
                              'biases': tf.Variable(tf.random_normal([2]))}
