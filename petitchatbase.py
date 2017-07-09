@@ -16,10 +16,11 @@ random.seed(42)
 pd.set_option('display.float_format', lambda x: '%.3f' % x)
 
 debug = True
+
 def debugWithTimer(message):
     global lasttime, debug
     if debug == True:
-        print( round(time.perf_counter() - lasttime,3) )
+        print( '[ %s seconds ] ' % round(time.perf_counter() - lasttime,3) )
         print(message + "... ", end='', flush=True )
         lasttime = time.perf_counter()
 

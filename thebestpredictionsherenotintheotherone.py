@@ -80,20 +80,22 @@ def myFirstNN(train, test):
 
     # just some json definitions of what the layers are
     hiddenLayerDefinitions = [{'weights':tf.Variable(tf.random_normal([nbfeatures,50])),'biases':tf.Variable(tf.random_normal([50]))}
-                              ,
-                              ,
+                              ,{'weights':tf.Variable(tf.random_normal([50,30])),'biases':tf.Variable(tf.random_normal([30]))}
+                              ,{'weights':tf.Variable(tf.random_normal([30,10])),'biases':tf.Variable(tf.random_normal([10]))}
                              ]
 
-    outputLayerDefinition = {'weights':tf.Variable(tf.random_normal([50,2])),
+    outputLayerDefinition = {'weights':tf.Variable(tf.random_normal([10,2])),
                              'biases': tf.Variable(tf.random_normal([2]))}
 
-    #create layer from input to next layer
-    l1 = tf.add(tf.matmul(inputPlaceholder, hiddenLayer1Definition['weights']), hiddenLayer1Definition['biases'])
-    l1 = tf.nn.relu(l1)
+    previousLayer = inputPlaceholder
+    for definition in hiddenLayerDefinitions:
+        layer = tf.add(tf.matmul(previousLayer, definition['weights']), definition['biases'])
+        layer = tf.nn.relu(layer)
+        previousLayer = layer
 
     #the output is also the model we're going to run (any layer can apparently be)
     #output = tf.nn.softmax(tf.matmul(l1, outputLayerDefinition['weights']))
-    output = tf.matmul(l1, outputLayerDefinition['weights'])
+    output = tf.matmul(previousLayer, outputLayerDefinition['weights'])
 
     #give the cost function for optimizer
     cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=output, labels=outputPlaceholder))
