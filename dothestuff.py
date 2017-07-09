@@ -1,6 +1,6 @@
 import petitchatbase as pcb
 import thebestpredictionsherenotintheotherone as bestpredictions
-import predictions as worstpredictions
+import predictions as predictions
 import numpy as np
 import pandas as pd
 import time
@@ -36,21 +36,21 @@ pcb.train, pcb.test = pcb.trainAndTestForValidation()
 #p2 = bestpredictions.predictOverFrequencyThreshold(0.35)
 #
 # pcb.debugWithTimer("generating decision tree prediction")
-# p3 = worstpredictions.generateDecisionTreePrediction(pcb.train, pcb.test)
+# p3 = predictions.generateDecisionTreePrediction(pcb.train, pcb.test)
 #
 # pcb.debugWithTimer("generating linear regression prediction")
-# p4 = worstpredictions.generateLinearRegressionPrediction(pcb.train, pcb.test)
+# p4 = predictions.generateLinearRegressionPrediction(pcb.train, pcb.test)
 #
-# pcb.debugWithTimer("generating xgboost prediction")
-# p5 = worstpredictions.generateXGBoostPrediction(pcb.train, pcb.test)
+pcb.debugWithTimer("generating xgboost prediction")
+p5 = predictions.generateXGBoostPrediction(pcb.train, pcb.test)
 
 #pcb.debugWithTimer("generating xgboost prediction")
 #p6 = bestpredictions.sLogistic(pcb.train, pcb.test)
 
 #print(pcb.train['user_id'].unique())
 
-pcb.debugWithTimer("generating myFirstNN prediction")
-p7 = bestpredictions.myFirstNN(pcb.train, pcb.test)
+#pcb.debugWithTimer("generating myFirstNN prediction")
+#p7 = bestpredictions.myFirstNN(pcb.train, pcb.test)
 
 # for i in range(5, 8): #threshold between 0.25 and 0.4 is where the good stuff is, possibly
 #      pcb.debugWithTimer("generating freq threshold prediction + " + str(i*0.05))
@@ -67,10 +67,10 @@ p7 = bestpredictions.myFirstNN(pcb.train, pcb.test)
 # pcb.debugWithTimer("scoring p5: ")
 # pcb.scorePrediction(p5)
 pcb.debugWithTimer("scoring p7: ")
-pcb.scorePrediction(p7)
+pcb.scorePrediction(p5)
 
 
-predictionToSaveFull = p7
+predictionToSaveFull = p5
 
 pcb.debugWithTimer("creating CSV")
 predictionToSaveFull = predictionToSaveFull[predictionToSaveFull['ordered'] == True]

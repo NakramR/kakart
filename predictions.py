@@ -7,6 +7,7 @@ import petitchatbase as pcb
 import numpy as np
 from xgboost import XGBClassifier
 from sklearn.metrics import accuracy_score
+from collections import Counter
 
 random.seed(42)
 pd.set_option('display.float_format', lambda x: '%.3f' % x)
@@ -31,12 +32,13 @@ def generateDecisionTreePrediction(train, test):
     df['user_id'] = test['user_id']
     df['product_id'] = test['product_id']
     df['ordered'] = y_pred
+    print('Prediction data: %s, frequency: %s ' % (y_pred, Counter(y_pred)))
     return df
 
 
 def generateLogisticRegressionPrediction(train, test):
     print('\n##################\nLogistic Regression\n##################')
-    estimator = LogisticRegression()
+    estimator = LogisticRegression(class_weight='balanced')
 
     X_train = train.drop(['reordered'], axis=1)
     y_train = train['reordered']
@@ -48,6 +50,7 @@ def generateLogisticRegressionPrediction(train, test):
     df['user_id'] = test['user_id']
     df['product_id'] = test['product_id']
     df['ordered'] = y_pred
+    print('Prediction data: %s, frequency: %s ' % (y_pred, Counter(y_pred)))
     return df
 
 
@@ -69,6 +72,7 @@ def generateLinearRegressionPrediction(train, test):
     df['user_id'] = test['user_id']
     df['product_id'] = test['product_id']
     df['ordered'] = y_pred
+    print('Prediction data: %s, frequency: %s ' % (y_pred, Counter(y_pred)))
     return df
 
 
@@ -87,6 +91,7 @@ def generateXGBoostPrediction(train, test):
     df['user_id'] = test['user_id']
     df['product_id'] = test['product_id']
     df['ordered'] = y_pred
+    print('Prediction data: %s, frequency: %s ' % (y_pred, Counter(y_pred)))
     return df
 
 

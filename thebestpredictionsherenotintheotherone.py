@@ -135,7 +135,7 @@ def myFirstNN(train, test):
 
         #print(tf.reduce_mean(tf.cast(tf.equal(tf.argmax(output,1),tf.argmax(y_test)),'float')).eval(feed_dict={inputPlaceholder:x_test}))
         o = prediction.eval(feed_dict={inputPlaceholder:x_test})
-        print('content %s, frequency %s ' % (o, Counter(o)))
+        print('Prediction data: %s, frequency: %s ' % (o, Counter(o)))
 
     # features = np.array(list(features))
     # # pos: [1,0] , argmax: 0
