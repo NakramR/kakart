@@ -59,8 +59,8 @@ def sLogistic(train, test):
     return df
 
 def myFirstNN(train, test):
-    #features = ['orderfrequency', 'dayfrequency', 'department_id', 'aisle_id', 'orderfrequency', 'days_without_product_order','eval_days_since_prior_order']
-    features = ['orderfrequency']
+    features = ['orderfrequency', 'dayfrequency', 'department_id', 'aisle_id', 'orderfrequency', 'days_without_product_order','eval_days_since_prior_order']
+    #features = ['orderfrequency']
 
     nbfeatures = len(features)
 
@@ -78,6 +78,7 @@ def myFirstNN(train, test):
     # define input and output
     inputPlaceholder = tf.placeholder('float', [None, nbfeatures])
     truthYPlaceholder = tf.placeholder('float', [None,2])
+    neuronDropoutRate = tf.placeholder('float')
 
     hiddenLayerSizes = [200, 100, 50, 10]
     layerSize0 = nbfeatures
@@ -95,6 +96,7 @@ def myFirstNN(train, test):
     for definition in hiddenLayerDefinitions:
         layer = tf.add(tf.matmul(previousLayer, definition['weights']), definition['biases'])
         layer = tf.nn.relu(layer)
+        layer = tf.nn.dropout(layer, neuronDropoutRate)
         previousLayer = layer
 
     #the output is also the model we're going to run (any layer can apparently be)
@@ -104,9 +106,10 @@ def myFirstNN(train, test):
     #give the cost function for optimizer
     cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=output, labels=truthYPlaceholder))
 
-    # create the optimizer
+
+    # create the optimizer (also the training step)
     optimizer = tf.train.AdamOptimizer().minimize(cost)
-    #optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.1).minimize(cost)
+    #optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.001).minimize(cost)
 
     #set the prediction and truth values
     prediction = tf.argmax(output,1)
@@ -138,10 +141,10 @@ def myFirstNN(train, test):
             batch_y = y_train[(curStep-1)*100:(curStep)*100]
 
             # train
-            trainData = {inputPlaceholder: batch_x , truthYPlaceholder: batch_y}
-
+            trainData = {inputPlaceholder: batch_x , truthYPlaceholder: batch_y, neuronDropoutRate : 1.0}
             optimizer.run(feed_dict=trainData)
 
+            trainData = {inputPlaceholder: batch_x , truthYPlaceholder: batch_y, neuronDropoutRate : 1.0}
             acc, err = s.run([accuracy, cost], feed_dict=trainData)
 
             #xxx = accuracy.eval({inputPlaceholder: batch_x, truthYPlaceholder: batch_y})
@@ -152,7 +155,7 @@ def myFirstNN(train, test):
         #print('Accuracy on test:', accuracy.eval({inputPlaceholder: x_test , truthYPlaceholder: y_test}))
 
         #print(tf.reduce_mean(tf.cast(tf.equal(tf.argmax(output,1),tf.argmax(y_test)),'float')).eval(feed_dict={inputPlaceholder:x_test}))
-        o = prediction.eval(feed_dict={inputPlaceholder:x_test})
+        o = prediction.eval(feed_dict={inputPlaceholder:x_test, neuronDropoutRate : 1.0})
 
     # features = np.array(list(features))
     # # pos: [1,0] , argmax: 0
