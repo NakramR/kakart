@@ -79,12 +79,14 @@ def myFirstNN(train, test):
     inputPlaceholder = tf.placeholder('float', [None, nbfeatures])
     truthYPlaceholder = tf.placeholder('float', [None,2])
 
+    hiddenLayerSizes = [200, 100, 50, 10]
+    layerSize0 = nbfeatures
+    hiddenLayerDefinitions = []
 
-    # just some json definitions of what the layers are
-    hiddenLayerDefinitions = [{'weights':tf.Variable(tf.random_normal([nbfeatures,50])),'biases':tf.Variable(tf.random_normal([50]))}
-                              ,{'weights':tf.Variable(tf.random_normal([50,30])),'biases':tf.Variable(tf.random_normal([30]))}
-                              ,{'weights':tf.Variable(tf.random_normal([30,10])),'biases':tf.Variable(tf.random_normal([10]))}
-                             ]
+    for layerSize in hiddenLayerSizes:
+        hiddenLayerDefinitions.append({'weights':tf.Variable(tf.random_normal([layerSize0,layerSize])),'biases':tf.Variable(tf.random_normal([layerSize]))})
+        layerSize0 = layerSize
+    print('Hidden layer sizes : %s ' % hiddenLayerSizes)
 
     outputLayerDefinition = {'weights':tf.Variable(tf.random_normal([10,2])),
                              'biases': tf.Variable(tf.random_normal([2]))}
