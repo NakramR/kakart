@@ -6,6 +6,7 @@ from sklearn import model_selection
 from sklearn.linear_model import LogisticRegression
 import tensorflow as tf
 import numpy as np
+from collections import Counter
 
 def generateRandomPrediction():
     randpred = pd.DataFrame(columns=('user_id', 'product_id', 'ordered'))
@@ -134,7 +135,7 @@ def myFirstNN(train, test):
 
         #print(tf.reduce_mean(tf.cast(tf.equal(tf.argmax(output,1),tf.argmax(y_test)),'float')).eval(feed_dict={inputPlaceholder:x_test}))
         o = prediction.eval(feed_dict={inputPlaceholder:x_test})
-        print(o)
+        print('content %s, frequency %s ' % (o, Counter(o)))
 
     # features = np.array(list(features))
     # # pos: [1,0] , argmax: 0
