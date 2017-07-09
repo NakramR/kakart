@@ -90,27 +90,16 @@ def myFirstNN(train, test):
     #y_train['newcolumn3'] = list(float(not(i)) for i in y_train['reordered'].values)
 
     # define input and output
-    with tf.name_scope('input'):
-        inputPlaceholder = tf.placeholder('float', [None, nbfeatures], name='myWonderfullInput')
-        truthYPlaceholder = tf.placeholder('float', [None,2])
-
-    with tf.name_scope('dropout_rate'):
-        neuronDropoutRate = tf.placeholder('float')
-        tf.summary.scalar('dropout_keep_probability', neuronDropoutRate)
+    inputPlaceholder = tf.placeholder('float', [None, nbfeatures])
+    truthYPlaceholder = tf.placeholder('float', [None,2])
+    neuronDropoutRate = tf.placeholder('float')
 
     hiddenLayerSizes = [200, 100, 50, 10]
     layerSize0 = nbfeatures
     hiddenLayerDefinitions = []
 
-    count = 0
     for layerSize in hiddenLayerSizes:
-        count = count+1
-        with tf.name_scope('hiddenLayer' + str(count)):
-            with tf.name_scope('weights'):
-                w = tf.Variable(tf.random_normal([layerSize0,layerSize]))
-            with tf.name_scope('biases'):
-                b = tf.Variable(tf.random_normal([layerSize]))
-            hiddenLayerDefinitions.append({'weights':w,'biases':b})
+        hiddenLayerDefinitions.append({'weights':tf.Variable(tf.random_normal([layerSize0,layerSize])),'biases':tf.Variable(tf.random_normal([layerSize]))})
         layerSize0 = layerSize
     print('Hidden layer sizes : %s ' % hiddenLayerSizes)
 
@@ -118,28 +107,22 @@ def myFirstNN(train, test):
                              'biases': tf.Variable(tf.random_normal([2]))}
 
     previousLayer = inputPlaceholder
-    count = 0
     for definition in hiddenLayerDefinitions:
-        count = count+1
-        with tf.name_scope('hiddenLayer' + str(count)):
-            layer = tf.add(tf.matmul(previousLayer, definition['weights']), definition['biases'])
-            tf.summary.histogram('preactivations', layer)
-            layer = tf.nn.relu(layer)
-            with tf.name_scope('dropout'):
-                layer = tf.nn.dropout(layer, neuronDropoutRate, name='dropout'+str(count))
+        layer = tf.add(tf.matmul(previousLayer, definition['weights']), definition['biases'])
+        layer = tf.nn.relu(layer)
+        layer = tf.nn.dropout(layer, neuronDropoutRate)
         previousLayer = layer
 
     #the output is also the model we're going to run (any layer can apparently be)
     #output = tf.nn.softmax(tf.matmul(l1, outputLayerDefinition['weights']))
-    with tf.name_scope('output'):
-        output = tf.matmul(previousLayer, outputLayerDefinition['weights'])
+    output = tf.matmul(previousLayer, outputLayerDefinition['weights'])
 
     #give the cost function for optimizer
-    lossFunction = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=output, labels=truthYPlaceholder))
-    tf.summary.scalar('lossFunction', lossFunction)
+    cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=output, labels=truthYPlaceholder))
+
 
     # create the optimizer (also the training step)
-    optimizer = tf.train.AdamOptimizer().minimize(lossFunction)
+    optimizer = tf.train.AdamOptimizer().minimize(cost)
     #optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.001).minimize(cost)
 
     #set the prediction and truth values
@@ -152,11 +135,7 @@ def myFirstNN(train, test):
     correct = tf.equal(prediction, trainingtruth)
 
     #define accuracy
-    with tf.name_scope('accuracy'):
-        accuracy = tf.reduce_mean(tf.cast(correct, 'float'))
-
-    tf.summary.scalar("accuracy", accuracy)
-    #tf.scalar_summary("cost", lossFunction)
+    accuracy = tf.reduce_mean(tf.cast(correct, 'float'))
 
     # sess = tf.Session()
     # sess.run(tf.global_variables_initializer())
@@ -178,11 +157,11 @@ def myFirstNN(train, test):
             batch_y = y_train[(curStep-1)*100:(curStep)*100]
 
             # train
-            trainData = {inputPlaceholder: batch_x , truthYPlaceholder: batch_y, neuronDropoutRate : 0.9}
+            trainData = {inputPlaceholder: batch_x , truthYPlaceholder: batch_y, neuronDropoutRate : 1.0}
             optimizer.run(feed_dict=trainData)
 
             trainData = {inputPlaceholder: batch_x , truthYPlaceholder: batch_y, neuronDropoutRate : 1.0}
-            acc, err = s.run([accuracy, lossFunction], feed_dict=trainData)
+            acc, err = s.run([accuracy, cost], feed_dict=trainData)
             graph.loc[len(graph)] = [curStep, acc, err]
 
             #xxx = accuracy.eval({inputPlaceholder: batch_x, truthYPlaceholder: batch_y})
@@ -190,11 +169,17 @@ def myFirstNN(train, test):
 
         file_writer = tf.summary.FileWriter('data/tflogs/', s.graph)
 
+        print('Generating graphic...')
         fig, ax = plt.subplots()
         ax2 = ax.twinx()
-        sns.pointplot(x='index', y='accuracy', data=graph, color='blue', ax=ax, label = 'accuracy', scale=0.2)
-        sns.pointplot(x='index', y='error', data=graph, color='green',ax=ax2, label = 'error', scale=0.2)
-        #plt.legend(loc='upper right')
+
+        sns.pointplot(x='index', y='accuracy', data=graph, color='blue', ax=ax, label = 'Accuracy', scale=0.2)
+        sns.pointplot(x='index', y='error', data=graph, color='green',ax=ax2, label = 'Error', scale=0.2)
+        #ax.legend()
+        plt.legend(loc='upper right')
+        labels = ax.get_xticklabels()
+        ax.set_xticklabels(labels, rotation=45)
+
         plt.xticks(rotation=45)
         plt.show()
 
