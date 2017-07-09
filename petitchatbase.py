@@ -161,7 +161,6 @@ def scorePrediction(predictionperitem):
             xx = eval_fun(truthperuser[index], myprediction[index])
             sumf1 = sumf1 + xx[2]
 
-            #sklearn f1 score
             # get the full product list, including entirely new products that were not present in training data
             fulluserprods = set().union(list(uniqueproductperuser[index]),list(myprediction[index]))
 
