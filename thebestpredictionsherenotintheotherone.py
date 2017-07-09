@@ -154,7 +154,7 @@ def myFirstNN(train, test):
 
             #xxx = accuracy.eval({inputPlaceholder: batch_x, truthYPlaceholder: batch_y})
             print('Accuracy on self: %s error:%s ' % (str(acc), str(err)))
-
+        print('Generating graphic...')
         fig, ax = plt.subplots()
         ax2 = ax.twinx()
         sns.pointplot(x='index', y='accuracy', data=graph, color='blue', ax=ax, label = 'accuracy')
