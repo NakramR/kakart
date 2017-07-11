@@ -23,6 +23,7 @@ pcb.initData(pcb.maxuserid)
 pcb.debugWithTimer("splitting train/test orders")
 
 pcb.train, pcb.test = pcb.trainAndTestForValidation()
+pcb.train, pcb.test = pcb.balancedTrainAndTestForValidation()
 
 #print(usersInTest)
 

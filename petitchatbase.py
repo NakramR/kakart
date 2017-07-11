@@ -10,6 +10,7 @@ import time
 import os.path
 from sklearn.metrics import f1_score
 from collections import Counter
+import sys
 
 
 random.seed(42)
@@ -23,6 +24,19 @@ def debugWithTimer(message):
         print( '[ %s seconds ] ' % round(time.perf_counter() - lasttime,3) )
         print(message + "... ", end='', flush=True )
         lasttime = time.perf_counter()
+
+def are_we_running_in_debug_mode():
+    gettrace = getattr(sys, 'gettrace', None)
+    if gettrace is None:
+        print("can't find anything")
+        return False # don't know, really
+    elif gettrace():
+        print("we're running in debug mode")
+        return True
+    else:
+        print("we're not running in debug mode")
+        return False
+
 
 # because sklearn's has its own random seed.
 def deterministic_train_test_split(list, test_size):
@@ -233,7 +247,6 @@ def missingValues(df):
 
 
 def trainAndTestForValidation():
-
     originalTrain = userproductstats[userproductstats['testortrain'] != 'test']
     originalTest = userproductstats[userproductstats['testortrain'] == 'test']
     print('originalTrain : ', originalTrain.shape, ' originalTest ', originalTest.shape)
@@ -244,6 +257,33 @@ def trainAndTestForValidation():
 
     train = originalTrain[originalTrain['user_id'].isin(trainUsers)]
     test = originalTrain[~originalTrain['user_id'].isin(trainUsers)]
+
+    test = pd.concat([test, originalTest])
+    train = train.drop(['testortrain'], axis=1)
+    test = test.drop(['testortrain'], axis=1)
+    print('train : ', train.shape, ' test ', test.shape)
+    return train, test
+
+def balancedTrainAndTestForValidation():
+    originalTrain = userproductstats[userproductstats['testortrain'] != 'test']
+    originalTest = userproductstats[userproductstats['testortrain'] == 'test']
+    print('originalTrain : ', originalTrain.shape, ' originalTest ', originalTest.shape)
+
+    uniqueusers = originalTrain['user_id'].unique()
+
+    trainUsers, testUsers = deterministic_train_test_split(uniqueusers, test_size=0.2)
+
+    train = originalTrain[originalTrain['user_id'].isin(trainUsers)]
+    test = originalTrain[~originalTrain['user_id'].isin(trainUsers)]
+
+    numPositive = len(train[train['reordered'] == 1])
+    negIndices = list(train[train['reordered'] == 0]['Unnamed: 0'])
+    random.shuffle(negIndices)
+
+    indicesToKeep = negIndices[:numPositive]
+    indicesToKeep.extend(list(train[train['reordered'] == 1]['Unnamed: 0']))
+
+    train = train[train['Unnamed: 0'].isin(indicesToKeep)]
 
     test = pd.concat([test, originalTest])
     train = train.drop(['testortrain'], axis=1)

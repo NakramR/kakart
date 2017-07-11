@@ -8,6 +8,7 @@ import tensorflow as tf
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+import sys
 
 def generateRandomPrediction():
     randpred = pd.DataFrame(columns=('user_id', 'product_id', 'predy'))
@@ -71,9 +72,9 @@ def tfvariable_summaries(var):
         tf.summary.scalar('min', tf.reduce_min(var))
         tf.summary.histogram('histogram', var)
 
-def makeHyperParamString(hiddenLayerSizes, dropoutRate, numFeatures, optimizer, learningrate, lossFunction):
+def makeHyperParamString(hiddenLayerSizes, dropoutRate, numFeatures, optimizer, learningrate, lossFunction, extra):
 
-    s = "("
+    s = "feat" + str(numFeatures) + "("
 
     for layerSize in hiddenLayerSizes:
         s = s + str(layerSize) + '-'
@@ -82,47 +83,109 @@ def makeHyperParamString(hiddenLayerSizes, dropoutRate, numFeatures, optimizer, 
     s = s + '-' + optimizer
     s = s + '-lr.' + str(learningrate)
     s = s + '-loss.' + lossFunction
+    s = s + extra
     return s
 
 
 def myFirstNN(train, test):
-    features = ['orderfrequency', 'dayfrequency', 'department_id', 'aisle_id', 'orderfrequency', 'days_without_product_order','eval_days_since_prior_order',
-                'numproductorders', 'totaluserorders','day_number_of_last_product_order', 'eval_order_dow']
-    #features = ['orderfrequency']
-    nbfeatures = len(features)
-
-    x_train = train[features]
-    y_train = np.column_stack(
-                (list(float(i) for i in train['reordered']),
-                 list(float(not (i)) for i in train['reordered'])))
-
-    # define input and output
-    with tf.name_scope('input'):
-        inputPlaceholder = tf.placeholder('float', [None, nbfeatures], name='myWonderfullInput')
-        truthYPlaceholder = tf.placeholder('float', [None,2], name="mylabels")
-
-    with tf.name_scope('dropout_rate'):
-        neuronDropoutRate = tf.placeholder('float')
-        tf.summary.scalar('dropout_keep_probability', neuronDropoutRate)
-
-
-
-
-    bSaveTFSummary = False
 
     # define hyperparameters
-    hiddenLayerSizes = [20,10]
-    dropoutRate = 0.9
-    optimizerName = 'adam' # gradientDescent, adagrad, adam
-    lr = 0.001
-    lf = 'softmaxxent' # sigmoidxent, softmaxxent, weighted
+
+    # features = ['orderfrequency', 'dayfrequency', 'department_id', 'aisle_id', 'days_without_product_order','eval_days_since_prior_order',
+    #            'numproductorders', 'totaluserorders','day_number_of_last_product_order', 'eval_order_dow']
+
+    if (len(sys.argv) > 2 and sys.argv[2] == '1' and not (pcb.are_we_running_in_debug_mode())):
+        bSaveTFSummary = True  # don't save summary in debug mode (incomplete data) or when explicitly requested not
+    else:
+        bSaveTFSummary = False
 
     tf.set_random_seed(42)
 
+    hyperParamExplorationDict = [
+        { 'features': ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id']
+          ,'hiddenLayerSizes' : [20]
+          ,'dropoutRate' : 0.9
+          ,'optimizerName' : 'adam'  # gradientDescent, adagrad, adam
+          ,'lr' : 0.001
+          ,'lf' : 'softmaxxent'  # sigmoidxent, softmaxxent, weighted
+          ,'extra' : '-balancedinput'
+        }
+        , {'features': ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id']
+            , 'hiddenLayerSizes': [20, 20]
+            , 'dropoutRate': 0.9
+            , 'optimizerName': 'adam'  # gradientDescent, adagrad, adam
+            , 'lr': 0.001
+            , 'lf': 'softmaxxent'  # sigmoidxent, softmaxxent, weighted
+            , 'extra': '-balancedinput'
+           }
+        , {'features': ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id']
+            , 'hiddenLayerSizes': [20, 20, 20]
+            , 'dropoutRate': 0.9
+            , 'optimizerName': 'adam'  # gradientDescent, adagrad, adam
+            , 'lr': 0.001
+            , 'lf': 'softmaxxent'  # sigmoidxent, softmaxxent, weighted
+            , 'extra': '-balancedinput'
+           }
+        , {'features': ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id']
+            , 'hiddenLayerSizes': [100, 50, 20]
+            , 'dropoutRate': 0.9
+            , 'optimizerName': 'adam'  # gradientDescent, adagrad, adam
+            , 'lr': 0.001
+            , 'lf': 'softmaxxent'  # sigmoidxent, softmaxxent, weighted
+            , 'extra': '-balancedinput'
+           }
+        , {'features': ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id']
+            , 'hiddenLayerSizes': [100, 50, 20]
+            , 'dropoutRate': 0.8
+            , 'optimizerName': 'adam'  # gradientDescent, adagrad, adam
+            , 'lr': 0.001
+            , 'lf': 'softmaxxent'  # sigmoidxent, softmaxxent, weighted
+            , 'extra': '-balancedinput'
+           }
+        , {'features': ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id']
+            , 'hiddenLayerSizes': [100, 50, 20]
+            , 'dropoutRate': 0.8
+            , 'optimizerName': 'adagrad'  # gradientDescent, adagrad, adam
+            , 'lr': 0.001
+            , 'lf': 'softmaxxent'  # sigmoidxent, softmaxxent, weighted
+            , 'extra': '-balancedinput'
+           }
 
-    if True: #placeholder for hyperparam exploration
+    ]
 
-        hyperParamStr = makeHyperParamString(hiddenLayerSizes, dropoutRate, nbfeatures, optimizerName, lr, lf)
+    bestScore = 0
+    bestDefinition = {}
+    bestDF = None
+
+    for oneDefinition in hyperParamExplorationDict : #placeholder for hyperparam exploration
+        features = oneDefinition['features']
+        hiddenLayerSizes =oneDefinition['hiddenLayerSizes']
+        dropoutRate =oneDefinition['dropoutRate']
+        optimizerName =oneDefinition['optimizerName']
+        lr=oneDefinition['lr']
+        lf =oneDefinition['lf']
+        extra = oneDefinition['extra']
+
+        nbfeatures = len(features)
+
+        x_train = train[features]
+        y_train = np.column_stack(
+            (list(float(not (i)) for i in train['reordered']),
+             list(float(i) for i in train['reordered'])))
+
+        tf.reset_default_graph()
+
+        # define input and output
+        with tf.name_scope('input'):
+            inputPlaceholder = tf.placeholder('float', [None, nbfeatures], name='myWonderfullInput')
+            truthYPlaceholder = tf.placeholder('float', [None, 2], name="mylabels")
+
+        with tf.name_scope('dropout_rate'):
+            neuronDropoutRate = tf.placeholder('float')
+            tf.summary.scalar('dropout_keep_probability', neuronDropoutRate)
+
+
+        hyperParamStr = makeHyperParamString(hiddenLayerSizes, dropoutRate, nbfeatures, optimizerName, lr, lf, extra)
 
         previousLayer = inputPlaceholder
         previousLayerSize = nbfeatures
@@ -149,23 +212,20 @@ def myFirstNN(train, test):
         with tf.name_scope('output'):
             with tf.name_scope('weights'):
                 w = tf.Variable(tf.random_normal([previousLayerSize, 2]), name="w" + str(count))
-            # with tf.name_scope('biases'):
-            #     b = tf.Variable(tf.random_normal([2]), name="b" + str(count))
-            # preact = tf.add(tf.matmul(previousLayer, w), b, name="preactivation" + str(count))
             preact = tf.matmul(previousLayer, w, name="preactivation" + str(count))
-            act = tf.nn.softmax(preact)
-            previousLayer = act
+            # act = tf.nn.softmax(preact)
+            previousLayer = preact
             tf.summary.histogram("weights", w)
             tf.summary.histogram("biases", b)
             tf.summary.histogram("preactivation", preact)
-            tf.summary.histogram("activation", act)
+            #tf.summary.histogram("activation", act)
 
         output = previousLayer
 
 
         with tf.name_scope('measures'):
             if ( lf == 'weighted'):
-                lossFunction = tf.reduce_mean(tf.nn.weighted_cross_entropy_with_logits(logits=output, targets=truthYPlaceholder, pos_weight=5), name="xent")
+                lossFunction = tf.reduce_mean(tf.nn.weighted_cross_entropy_with_logits(logits=output, targets=truthYPlaceholder, pos_weight=10), name="xent")
             elif ( lf == 'softmaxxent' ):
                 lossFunction = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=output, labels=truthYPlaceholder), name="xent")
             elif ( lf == 'sigmoidxent' ):
@@ -175,7 +235,10 @@ def myFirstNN(train, test):
 
             #set the prediction and truth values
             prediction = tf.argmax(output,1, name="prediction")
+            tf.summary.histogram('prediction', prediction)
+
             trainingtruth = tf.argmax(truthYPlaceholder,1, name="truth")
+            tf.summary.histogram('trainingtruth', trainingtruth)
 
             correct = tf.equal(prediction, trainingtruth, name="correct")
 
@@ -231,7 +294,10 @@ def myFirstNN(train, test):
 
                 feed_dict = {inputPlaceholder: batch_x , truthYPlaceholder: batch_y, neuronDropoutRate : 1.0}
                 acc, err = s.run([accuracy, lossFunction], feed_dict=feed_dict)
-                print('Accuracy on self: %s error:%s ' % (str(acc), str(err)))
+
+                outputValues = prediction.eval(feed_dict={inputPlaceholder: batch_x, neuronDropoutRate: 1.0})
+                if ( curStep%20 == 0):
+                    print('Accuracy on self: %s error:%s ' % (str(acc), str(err)))
 
                 #graph.loc[len(graph)] = [curStep, acc, err]
 
@@ -257,9 +323,19 @@ def myFirstNN(train, test):
             #print(tf.reduce_mean(tf.cast(tf.equal(tf.argmax(output,1),tf.argmax(y_test)),'float')).eval(feed_dict={inputPlaceholder:x_test}))
             o = prediction.eval(feed_dict={inputPlaceholder:x_test, neuronDropoutRate : 1.0})
 
-    df = pd.DataFrame(columns=('user_id', 'product_id', 'predy'))
-    df['user_id'] = test['user_id']
-    df['product_id'] = test['product_id']
-    df['predy'] = o
-    return df
+        df = pd.DataFrame(columns=('user_id', 'product_id', 'predy'))
+        df['user_id'] = test['user_id']
+        df['product_id'] = test['product_id']
+        df['predy'] = o
+
+        _, f1score = pcb.scorePrediction(df)
+        if  f1score > bestScore:
+            bestDefinition = oneDefinition
+            bestScore = f1score
+            bestDF = df
+
+    print( '********\n********\n********')
+    print('best score:' + str(bestScore) + ' with ' + str(bestDefinition) )
+    print( '********\n********\n********')
+    return bestDF
 
