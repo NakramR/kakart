@@ -64,7 +64,7 @@ pcb.train, pcb.test = pcb.balancedTrainAndTestForValidation()
 # p6 = bestpredictions.sLogistic(pcb.train, pcb.test)
 # pcb.debugWithTimer("scoring p6: ")
 # pcb.scorePrediction(p6)
-# 10k f1: 0.314483286208    full: f1:0.303212998498
+# # 10k f1: 0.314483286208    full: f1:0.303212998498
 # lastPrediction = p6
 
 #print(pcb.train['user_id'].unique())
