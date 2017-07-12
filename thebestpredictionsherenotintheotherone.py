@@ -139,8 +139,8 @@ def myFirstNN(train, test):
 
     # just one, the best
     # hyperParamExplorationDict = [{'features': ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id', 'aisle_id', 'eval_days_since_prior_order', 'numproductorders', 'totaluserorders', 'eval_days_since_prior_order'], 'hiddenLayerSizes': [50, 20], 'dropoutRate': 0.9, 'optimizerName': 'adam', 'lr': 0.001, 'lf': 'softmaxxent', 'extra': '-balancedinput'}]
-    hyperParamExplorationDict = [{'features': ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id'], 'hiddenLayerSizes': [20, 20], 'dropoutRate': 0.75, 'optimizerName': 'adam', 'lr': 0.001, 'lf': 'softmaxxent','extra': '-balancedinput'}, {'features': ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id', 'aisle_id', 'eval_days_since_prior_order', 'numproductorders', 'totaluserorders', 'eval_days_since_prior_order'], 'hiddenLayerSizes': [50, 20], 'dropoutRate': 0.9, 'optimizerName': 'adam', 'lr': 0.001, 'lf': 'softmaxxent', 'extra': '-balancedinput'}]
-    #
+    # hyperParamExplorationDict = [{'features': ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id'], 'hiddenLayerSizes': [20, 20], 'dropoutRate': 0.75, 'optimizerName': 'adam', 'lr': 0.001, 'lf': 'softmaxxent','extra': '-balancedinput'}, {'features': ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id', 'aisle_id', 'eval_days_since_prior_order', 'numproductorders', 'totaluserorders', 'eval_days_since_prior_order'], 'hiddenLayerSizes': [50, 20], 'dropoutRate': 0.9, 'optimizerName': 'adam', 'lr': 0.001, 'lf': 'softmaxxent', 'extra': '-balancedinput'}]
+    hyperParamExplorationDict = [{'features': ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id', 'aisle_id','eval_days_since_prior_order', 'numproductorders', 'totaluserorders', 'eval_days_since_prior_order'],'hiddenLayerSizes': [50, 20], 'dropoutRate': 0.9, 'optimizerName': 'adam', 'lr': 0.001, 'lf': 'softmaxxent','extra': '-balancedinput'}]
     # 0.32838
     bestScore = 0
     bestDefinition = {}
@@ -347,7 +347,18 @@ def myFirstNN(train, test):
     return bestDF
 
 
-
+# a useful function that takes an input and what size we want the output
+# to be, and multiples the input by a weight matrix plus bias (also creating
+# these variables)
+def linear(input_, output_size, name, init_bias=0.0):
+    shape = input_.get_shape().as_list()
+    with tf.variable_scope(name):
+        W = tf.get_variable("weight_matrix", [shape[-1], output_size], tf.float32, tf.random_normal_initializer(stddev=1.0 / math.sqrt(shape[-1])))
+    if init_bias is None:
+        return tf.matmul(input_, W)
+    with tf.variable_scope(name):
+        b = tf.get_variable("bias", [output_size], initializer=tf.constant_initializer(init_bias))
+    return tf.matmul(input_, W) + b
 
 def mySecondNN(train, test):
 
@@ -368,237 +379,67 @@ def mySecondNN(train, test):
 
     tf.set_random_seed(42)
 
-    possibleOptimizers = ['adagrad', 'adam']
-    possibleFeatures = [features4, features9] #[features1, features4, features9]
-    possibleDropoutRates = [0.75, 0.9, 1.0 ]
-    possibleNetworkLayerShapes = [ [20], [20,20], [50,20], [20,20,20], [100,50, 20] ]
+    x_train = train['orderfrequency']
+    y_train = np.column_stack(
+        (list(float(not (i)) for i in train['reordered']),
+         list(float(i) for i in train['reordered'])))
 
-    hyperParamExplorationDict = []
-    for fdef in possibleFeatures:
-        for nshape in possibleNetworkLayerShapes:
-            for optimizerName in possibleOptimizers:
-                for dr in possibleDropoutRates:
-                    hyperParamExplorationDict.extend(
-                    [
-                        { 'features': fdef
-                          ,'hiddenLayerSizes' : nshape
-                          ,'dropoutRate' : dr
-                          ,'optimizerName' :optimizerName  # gradientDescent, adagrad, adam
-                          ,'lr' : 0.001
-                          ,'lf' : 'softmaxxent'  # sigmoidxent, softmaxxent, weighted
-                          ,'extra' : '-balancedinput'
-                        }
-                    ]
-                    )
+    tf.reset_default_graph()
 
-    # just one, the best
-    # hyperParamExplorationDict = [{'features': ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id', 'aisle_id', 'eval_days_since_prior_order', 'numproductorders', 'totaluserorders', 'eval_days_since_prior_order'], 'hiddenLayerSizes': [50, 20], 'dropoutRate': 0.9, 'optimizerName': 'adam', 'lr': 0.001, 'lf': 'softmaxxent', 'extra': '-balancedinput'}]
-    hyperParamExplorationDict = [{'features': ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id'], 'hiddenLayerSizes': [20, 20], 'dropoutRate': 0.75, 'optimizerName': 'adam', 'lr': 0.001, 'lf': 'softmaxxent','extra': '-balancedinput'}, {'features': ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id', 'aisle_id', 'eval_days_since_prior_order', 'numproductorders', 'totaluserorders', 'eval_days_since_prior_order'], 'hiddenLayerSizes': [50, 20], 'dropoutRate': 0.9, 'optimizerName': 'adam', 'lr': 0.001, 'lf': 'softmaxxent', 'extra': '-balancedinput'}]
-    #
-    # 0.32838
-    bestScore = 0
-    bestDefinition = {}
-    bestDF = None
-    allScores = {}
+    # define input and output
+    with tf.name_scope('input'):
+        inputTSPlaceholder = tf.placeholder(tf.float32, [None, 100, 2]) # history is 100 steps back at most, and expressed as boolean
+        labels = tf.placeholder(tf.float, [None, 2])
 
-    lastfeatures = None
-    x_train = None
-    y_train = None
+    lstm_cell_1 = tf.contrib.rnn.LSTMCell(30)
+    lstm_cell_2 = tf.contrib.rnn.LSTMCell(30)
+    multi_lstm_cells = tf.contrib.rnn.MultiRNNCell(cells=[lstm_cell_1, lstm_cell_2], state_is_tuple=True)
 
-    for oneDefinition in hyperParamExplorationDict : #placeholder for hyperparam exploration
-        features = oneDefinition['features']
-        hiddenLayerSizes =oneDefinition['hiddenLayerSizes']
-        dropoutRate =oneDefinition['dropoutRate']
-        optimizerName =oneDefinition['optimizerName']
-        lr=oneDefinition['lr']
-        lf =oneDefinition['lf']
-        extra = oneDefinition['extra']
+    # define the op that runs the LSTM, across time, on the data
+    _, final_state = tf.nn.dynamic_rnn(multi_lstm_cells, inputTSPlaceholder, dtype=tf.float32)
 
-        nbfeatures = len(features)
+    #output layer
+    output = linear(final_state[-1][-1], 1, name="output")
 
-        if lastfeatures != features:
-            x_train = train[features]
-            y_train = np.column_stack(
-                (list(float(not (i)) for i in train['reordered']),
-                 list(float(i) for i in train['reordered'])))
-            lastfeatures = features
+    # define cross entropy loss function
+    loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=output, labels=labels)
+    loss = tf.reduce_mean(loss)
 
+    # round our actual probabilities to compute error
+    prob = tf.nn.sigmoid(output)
+    prediction = tf.to_float(tf.greater_equal(prob, 0.5))
+    pred_err = tf.to_float(tf.not_equal(prediction, labels))
+    pred_err = tf.reduce_sum(pred_err)
+    pred_acc = tf.equal(prediction, labels)
 
-        tf.reset_default_graph()
+    # define our optimizer to minimize the loss
+    optimizer = tf.train.AdamOptimizer().minimize(loss)
 
-        # define input and output
-        with tf.name_scope('input'):
-            inputPlaceholder = tf.placeholder('float', [None, nbfeatures], name='myWonderfullInput')
-            truthYPlaceholder = tf.placeholder('float', [None, 2], name="mylabels")
+    with tf.InteractiveSession() as sess:
 
-        with tf.name_scope('dropout_rate'):
-            neuronDropoutRate = tf.placeholder('float')
-            tf.summary.scalar('dropout_keep_probability', neuronDropoutRate)
+        batchSize = 100
+        curStep = 1
 
+        for curStep in range(1, int(len(y_train) / batchSize) + 1):
+            batch_x = x_train[(curStep - 1) * batchSize:(curStep) * batchSize]
+            batch_y = y_train[(curStep - 1) * batchSize:(curStep) * batchSize]
 
-        hyperParamStr = makeHyperParamString(hiddenLayerSizes, dropoutRate, nbfeatures, optimizerName, lr, lf, extra)
+            data = {input:batch_x, labels:batch_y}
+            _, loss_value_train, error_value_train = sess.run([optimizer, loss, pred_err], feed_dict=data)
 
-        previousLayer = inputPlaceholder
-        previousLayerSize = nbfeatures
-        count = 0
-        for layerSize in hiddenLayerSizes:
-            count = count+1
-            with tf.name_scope('hiddenLayer' + str(count)):
-                with tf.name_scope('weights'):
-                    w = tf.Variable(tf.random_normal([previousLayerSize, layerSize]), name="w" + str(count))
-                with tf.name_scope('biases'):
-                    b = tf.Variable(tf.random_normal([layerSize]), name="b" + str(count))
+            data_testing = {}
+            loss_value_test, error_value_test = sess.run([loss, pred_err], feed_dict=data_testing)
 
-                preact = tf.add(tf.matmul(previousLayer, w), b, name="preactivation" + str(count))
-                act = tf.nn.relu(preact, name="relu" + str(count))
-                with tf.name_scope('dropout'):
-                    layer = tf.nn.dropout(act, neuronDropoutRate, name='dropout'+str(count))
-                tf.summary.histogram("weights",w)
-                tf.summary.histogram("biases", b)
-                #tf.summary.histogram("preactivation", preact)
-                tf.summary.histogram("activation", act)
-            previousLayer = layer
-            previousLayerSize = layerSize
+    o = prediction.eval(feed_dict={input:x_test})
 
-        with tf.name_scope('output'):
-            with tf.name_scope('weights'):
-                w = tf.Variable(tf.random_normal([previousLayerSize, 2]), name="w" + str(count))
-            preact = tf.matmul(previousLayer, w, name="activation" + str(count))
-            # act = tf.nn.softmax(preact)
-            previousLayer = preact
-            tf.summary.histogram("weights", w)
-            tf.summary.histogram("biases", b)
-            tf.summary.histogram("activation", preact)
-            #tf.summary.histogram("activation", act)
+    df = pd.DataFrame(columns=('user_id', 'product_id', 'predy'))
+    df['user_id'] = test['user_id']
+    df['product_id'] = test['product_id']
+    df['predy'] = o
 
-        output = previousLayer
+    _, f1score = pcb.scorePrediction(df)
 
-
-        with tf.name_scope('measures'):
-            if ( lf == 'weighted'):
-                lossFunction = tf.reduce_mean(tf.nn.weighted_cross_entropy_with_logits(logits=output, targets=truthYPlaceholder, pos_weight=10), name="xent")
-            elif ( lf == 'softmaxxent' ):
-                lossFunction = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=output, labels=truthYPlaceholder), name="xent")
-            elif ( lf == 'sigmoidxent' ):
-                lossFunction = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=output, labels=truthYPlaceholder), name="xent")
-
-            tf.summary.scalar('lossFunction', lossFunction)
-
-            #f1ScorePerUser = tf.placeholder('float', [1], name="f1ScorePerUser")
-            #tf.summary.scalar('f1ScorePerUser', f1ScorePerUser)
-
-            #set the prediction and truth values
-            prediction = tf.argmax(output,1, name="prediction")
-            tf.summary.histogram('prediction', prediction)
-
-            trainingtruth = tf.argmax(truthYPlaceholder,1, name="truth")
-            tf.summary.histogram('trainingtruth', trainingtruth)
-
-            correct = tf.equal(prediction, trainingtruth, name="correct")
-
-            with tf.name_scope('accuracy'):
-                accuracy = tf.reduce_mean(tf.cast(correct, 'float'), name="accuracyMeasure")
-
-            tf.summary.scalar("accuracy", accuracy)
-
-        # create the optimizer (called training step)
-        #
-        with tf.name_scope('train'):
-            if ( optimizerName == 'adagrad' ):
-                train_step = tf.train.AdagradOptimizer(learning_rate=lr).minimize(lossFunction)
-            elif ( optimizerName == 'adam'):
-                train_step = tf.train.AdamOptimizer(learning_rate=lr).minimize(lossFunction)
-            elif (optimizerName == 'gradientDescent'):
-                train_step = tf.train.GradientDescentOptimizer(learning_rate=lr).minimize(lossFunction)
-
-
-        # sess = tf.Session()
-        # sess.run(tf.global_variables_initializer())
-        # sess.run([train_step, cost], feed_dict={inputPlaceholder: x_train , truthYPlaceholder: y_train})
-        # #train_step.run(feed_dict={inputPlaceholder: x_train, truthYPlaceholder: y_train})
-        # xxx = sess.run(accuracy.eval({inputPlaceholder: x_train , truthYPlaceholder: y_train}))
-
-
-        with tf.Session() as s:
-            tf.set_random_seed(42)
-            tf.global_variables_initializer().run()
-
-            batchSize = 100
-            curStep = 1
-
-            if bSaveTFSummary == True:
-                merged_summary = tf.summary.merge_all()
-                file_writer = tf.summary.FileWriter('data/tflogs/' + hyperParamStr)
-                file_writer.add_graph(s.graph)
-
-            #graph = pd.DataFrame(columns=['index', 'accuracy', 'error']);
-            for curStep in range(1,int(len(y_train)/batchSize)+1):
-                batch_x = x_train[(curStep-1)*batchSize:(curStep)*batchSize]
-                batch_y = y_train[(curStep-1)*batchSize:(curStep)*batchSize]
-
-                # train
-                feed_dict = {inputPlaceholder: batch_x , truthYPlaceholder: batch_y, neuronDropoutRate : dropoutRate}
-
-                if ( bSaveTFSummary == True and curStep % 5 == 0 ):
-                    summaryData = s.run(merged_summary,feed_dict)
-                    file_writer.add_summary(summaryData,curStep)
-
-                train_step.run(feed_dict=feed_dict)
-
-                feed_dict = {inputPlaceholder: batch_x , truthYPlaceholder: batch_y, neuronDropoutRate : 1.0}
-                acc, err = s.run([accuracy, lossFunction], feed_dict=feed_dict)
-                if (curStep % 100 == 0):
-                    print('Accuracy on self: %s error:%s ' % (str(acc), str(err)))
-
-                # outputValues = prediction.eval(feed_dict={inputPlaceholder: batch_x, neuronDropoutRate: 1.0})
-
-                #graph.loc[len(graph)] = [curStep, acc, err]
-
-
-            # print('Generating graphic...')
-            # fig, ax = plt.subplots()
-            # ax2 = ax.twinx()
-            #
-            # sns.pointplot(x='index', y='accuracy', data=graph, color='blue', ax=ax, label = 'Accuracy', scale=0.2)
-            # sns.pointplot(x='index', y='error', data=graph, color='green',ax=ax2, label = 'Error', scale=0.2)
-            # #ax.legend()
-            # plt.legend(loc='upper right')
-            # labels = ax.get_xticklabels()
-            # ax.set_xticklabels(labels, rotation=45)
-            #
-            # plt.xticks(rotation=45)
-            # plt.show()
-
-            x_test = test[features]
-            y_test = test[['reordered']]
-            #print('Accuracy on test:', accuracy.eval({inputPlaceholder: x_test , truthYPlaceholder: y_test}))
-
-            #print(tf.reduce_mean(tf.cast(tf.equal(tf.argmax(output,1),tf.argmax(y_test)),'float')).eval(feed_dict={inputPlaceholder:x_test}))
-            o = prediction.eval(feed_dict={inputPlaceholder:x_test, neuronDropoutRate : 1.0})
-
-        df = pd.DataFrame(columns=('user_id', 'product_id', 'predy'))
-        df['user_id'] = test['user_id']
-        df['product_id'] = test['product_id']
-        df['predy'] = o
-
-        pcb.debugWithTimer("scoring prediction" + hyperParamStr)
-        _, f1score = pcb.scorePrediction(df)
-        pcb.debugWithTimer("done scoring")
-        if  f1score > bestScore:
-            bestDefinition = oneDefinition
-            bestScore = f1score
-            bestDF = df
-        allScores[str(oneDefinition)] = f1score
-
-    print( '********\n********\n********')
-    print('best score:' + str(round(bestScore,5)) + ' with ' + str(bestDefinition) )
-    print( '********\n********\n********')
-
-    sortedScores = sorted(allScores.items(), key=operator.itemgetter(1))
-    for (definition, score) in sortedScores:
-        print("{:.5f}".format(score) + ':' +definition)
-
-    return bestDF
+    return df
 
 
 

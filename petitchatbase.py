@@ -62,6 +62,8 @@ aisles = pd.read_csv('data\\aisles.csv')
 products = pd.read_csv('data\\products.csv')
 departments = pd.read_csv('data\\departments.csv')
 
+debugWithTimer("done reading CSVs")
+
 prod_prior = [] #pd.read_csv('data\\order_products__prior.csv')
 prod_train = [] #pd.read_csv('data\\order_products__train.csv')
 orders = [] #pd.read_csv('data\\orders.csv')
@@ -162,7 +164,7 @@ def scorePrediction(predictionperitem):
     debugWithTimer("preparing score")
     uniquetrainusers = train['user_id'].unique()
     myprediction = predictionperitem[predictionperitem['predy'] == True]
-    myprediction = myprediction[~myprediction['user_id'].isin(uniquetrainusers)]
+    #myprediction = myprediction[~myprediction['user_id'].isin(uniquetrainusers)]
     myprediction = myprediction.groupby('user_id')['product_id'].apply(list)
 
     if ( len(uniqueproductperusercache) == 0 ):
@@ -175,6 +177,9 @@ def scorePrediction(predictionperitem):
 
     debugWithTimer("iterating")
     for index, x in truthperuser.iteritems():
+
+        if index in uniquetrainusers:
+            continue
 
         usercount = usercount + 1
 
@@ -228,11 +233,11 @@ def addPercentages(user_id):
 
 
 def getUserProductStats(maxuser):
-    query = "SELECT * FROM userproducttable WHERE user_id < " + maxuser
+    query = "SELECT u.*, prod_train.reordered FROM userproducttable2 u LEFT JOIN prod_train on u.eval_order_id = prod_train.order_id AND u.product_id = prod_train.product_id WHERE user_id < " + maxuser
 
     d = pd.read_sql(query, postgresconnection)
 
-    d = pd.merge(d, prod_train[['product_id', 'user_id','reordered']], on=['user_id', 'product_id'], how='left')
+    #d = pd.merge(d, prod_train[['product_id', 'user_id','reordered']], on=['user_id', 'product_id'], how='left')
 
     # IMPUTATION
     print('IMPUTATION')

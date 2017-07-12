@@ -12,6 +12,12 @@ pcb.maxuserid = '100'
 #pcb.maxuserid = '10000'
 #pcb.maxuserid = '1000000000'
 
+
+# print('blah')
+# pcb.getUserProductStats('1000000000')
+# pcb.userproductstats.to_csv('data\\cache\\userproductstats' + '1000000000' + '.csv')
+# print('blah')
+
 if sys.argv[1]:
     pcb.maxuserid = str(sys.argv[1])
 
@@ -32,36 +38,49 @@ pcb.train, pcb.test = pcb.balancedTrainAndTestForValidation()
 
 # pcb.debugWithTimer("generating random prediction")
 # p1 = bestpredictions.generateRandomPrediction()
+# lastPrediction = p1
 
 # pcb.debugWithTimer("generating freq threshold prediction")
 # p2 = bestpredictions.predictOverFrequencyThreshold(0.35)
 # pcb.debugWithTimer("scoring p2: ")
 # pcb.scorePrediction(p2)
 # 10k f1:0.314086319171    full: f1:0.305183197346
+# lastPrediction = p2
 
 #
 # pcb.debugWithTimer("generating decision tree prediction")
 # p3 = predictions.generateDecisionTreePrediction(pcb.train, pcb.test)
+# lastPrediction = p3
 #
 # pcb.debugWithTimer("generating linear regression prediction")
 # p4 = predictions.generateLinearRegressionPrediction(pcb.train, pcb.test)
+# lastPrediction = p4
 #
 # pcb.debugWithTimer("generating xgboost prediction")
 # p5 = predictions.generateXGBoostPrediction(pcb.train, pcb.test)
+# lastPrediction = p5
 
 # pcb.debugWithTimer("generating stephan's logistic prediction")
 # p6 = bestpredictions.sLogistic(pcb.train, pcb.test)
 # pcb.debugWithTimer("scoring p6: ")
 # pcb.scorePrediction(p6)
 # 10k f1: 0.314483286208    full: f1:0.303212998498
+# lastPrediction = p6
 
 #print(pcb.train['user_id'].unique())
 
 pcb.debugWithTimer("generating myFirstNN prediction")
-#p7 = bestpredictions.myFirstNN(pcb.train, pcb.test)
-p7 = bestpredictions.myFirstNNWithBools(pcb.train, pcb.test)
+p7 = bestpredictions.myFirstNN(pcb.train, pcb.test)
 pcb.debugWithTimer("scoring p7: ")
 pcb.scorePrediction(p7)
+lastPrediction = p7
+
+# pcb.debugWithTimer("generating mySecondNN prediction")
+# p8 = bestpredictions.mySecondNN(pcb.train, pcb.test)
+# pcb.debugWithTimer("scoring p7: ")
+# pcb.scorePrediction(p8)
+# lastPrediction = p8
+
 
 # for i in range(5, 8): #threshold between 0.25 and 0.4 is where the good stuff is, possibly
 #      pcb.debugWithTimer("generating freq threshold prediction + " + str(i*0.05))
@@ -78,7 +97,7 @@ pcb.scorePrediction(p7)
 # pcb.debugWithTimer("scoring p5: ")
 # pcb.scorePrediction(p5)
 
-predictionToSaveFull = p7
+predictionToSaveFull = lastPrediction
 
 pcb.debugWithTimer("creating CSV")
 predictionToSaveFull = predictionToSaveFull[predictionToSaveFull['predy'] == True]

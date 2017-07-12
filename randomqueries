@@ -1,0 +1,75 @@
+
+-- all tables are straight drops from CSVs, same names, same structure.
+
+-- extended order info
+
+CREATE OR REPLACE VIEW public.orders_e AS
+ SELECT x.order_id,
+    x.user_id,
+    x.eval_set,
+    x.order_number,
+    x.order_dow,
+    x.order_hour_of_day,
+    x.days_since_prior_order,
+    x.day_number,
+    string_agg(x.day_number::character varying::text, ','::text) OVER (PARTITION BY x.user_id) AS day_sequence
+   FROM ( SELECT orders.order_id,
+            orders.user_id,
+            orders.eval_set,
+            orders.order_number,
+            orders.order_dow,
+            orders.order_hour_of_day,
+            orders.days_since_prior_order,
+            sum(orders.days_since_prior_order) OVER (PARTITION BY orders.user_id ORDER BY orders.order_number RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS day_number
+           FROM orders
+          ORDER BY orders.user_id, orders.order_number) x;
+
+-- userproduct view, with summary info.
+
+CREATE OR REPLACE VIEW public.userproductview AS
+ SELECT DISTINCT x.user_id,
+    x.product_id,
+    x.numproductorders,
+    x.totaluserorders,
+    x.firstproductorder,
+    x.lastproductorder,
+    x.lastday,
+    x.firstday,
+    products.department_id,
+    products.aisle_id,
+        CASE
+            WHEN x.numproductorders > 1 THEN (x.lastday - x.firstday) / x.numproductorders::double precision
+            ELSE NULL::double precision
+        END AS dayfrequency,
+    x.numproductorders::double precision / (x.totaluserorders - x.firstproductorder + 1)::double precision AS orderfrequency,
+    max(x.day_number) OVER (PARTITION BY x.user_id, x.product_id) AS day_number_of_last_product_order,
+    max(x.day_number) OVER (PARTITION BY x.user_id) AS day_number_of_last_order,
+    max(x.day_number) OVER (PARTITION BY x.user_id) - max(x.day_number) OVER (PARTITION BY x.user_id, x.product_id) AS days_without_product_order,
+    x.order_sequence AS product_order_sequence,
+    x.day_sequence AS product_day_sequence,
+    evalorder.order_id AS eval_order_id,
+    evalorder.order_hour_of_day AS eval_order_hour_of_day,
+    evalorder.eval_set AS testortrain,
+    evalorder.order_dow AS eval_order_dow,
+    evalorder.days_since_prior_order AS eval_days_since_prior_order
+   FROM ( SELECT p.order_id,
+            p.product_id,
+            myorders.user_id,
+            myorders.order_number,
+            myorders.order_hour_of_day,
+            myorders.day_number,
+            myorders.day_number - sum(myorders.day_number) OVER (PARTITION BY myorders.user_id, p.product_id ORDER BY myorders.order_number ROWS BETWEEN 1 PRECEDING AND 1 PRECEDING) AS days_since_prior_product_order,
+            count(*) OVER (PARTITION BY myorders.user_id, p.product_id) AS numproductorders,
+            max(myorders.order_number) OVER (PARTITION BY myorders.user_id) AS totaluserorders,
+            min(myorders.order_number) OVER (PARTITION BY myorders.user_id, p.product_id) AS firstproductorder,
+            max(myorders.order_number) OVER (PARTITION BY myorders.user_id, p.product_id) AS lastproductorder,
+            max(myorders.day_number) OVER (PARTITION BY myorders.user_id, p.product_id) AS lastday,
+            min(myorders.day_number) OVER (PARTITION BY myorders.user_id, p.product_id) AS firstday,
+            string_agg(myorders.order_number::character varying::text, ','::text) OVER (PARTITION BY myorders.user_id, p.product_id) AS order_sequence,
+            string_agg(myorders.day_number::character varying::text, ','::text) OVER (PARTITION BY myorders.user_id, p.product_id) AS day_sequence
+           FROM prod_prior p
+             LEFT JOIN orders_e myorders ON myorders.order_id = p.order_id
+          ORDER BY myorders.user_id, p.product_id, myorders.order_number) x
+     LEFT JOIN products ON x.product_id = products.product_id
+     LEFT JOIN orders_e evalorder ON evalorder.eval_set <> 'prior'::text AND evalorder.user_id = x.user_id;
+
