@@ -35,6 +35,10 @@ pcb.train, pcb.test = pcb.balancedTrainAndTestForValidation()
 
 # pcb.debugWithTimer("generating freq threshold prediction")
 # p2 = bestpredictions.predictOverFrequencyThreshold(0.35)
+# pcb.debugWithTimer("scoring p2: ")
+# pcb.scorePrediction(p2)
+# 10k f1:0.314086319171    full: f1:0.305183197346
+
 #
 # pcb.debugWithTimer("generating decision tree prediction")
 # p3 = predictions.generateDecisionTreePrediction(pcb.train, pcb.test)
@@ -45,13 +49,19 @@ pcb.train, pcb.test = pcb.balancedTrainAndTestForValidation()
 # pcb.debugWithTimer("generating xgboost prediction")
 # p5 = predictions.generateXGBoostPrediction(pcb.train, pcb.test)
 
-# pcb.debugWithTimer("generating xgboost prediction")
+# pcb.debugWithTimer("generating stephan's logistic prediction")
 # p6 = bestpredictions.sLogistic(pcb.train, pcb.test)
+# pcb.debugWithTimer("scoring p6: ")
+# pcb.scorePrediction(p6)
+# 10k f1: 0.314483286208    full: f1:0.303212998498
 
 #print(pcb.train['user_id'].unique())
 
 pcb.debugWithTimer("generating myFirstNN prediction")
-p7 = bestpredictions.myFirstNN(pcb.train, pcb.test)
+#p7 = bestpredictions.myFirstNN(pcb.train, pcb.test)
+p7 = bestpredictions.myFirstNNWithBools(pcb.train, pcb.test)
+pcb.debugWithTimer("scoring p7: ")
+pcb.scorePrediction(p7)
 
 # for i in range(5, 8): #threshold between 0.25 and 0.4 is where the good stuff is, possibly
 #      pcb.debugWithTimer("generating freq threshold prediction + " + str(i*0.05))
@@ -60,7 +70,6 @@ p7 = bestpredictions.myFirstNN(pcb.train, pcb.test)
 #      pcb.scorePrediction(p2)
 
 
-#pcb.scorePrediction(p2)
 
 # pcb.debugWithTimer("scoring p3: ")
 # pcb.scorePrediction(p3)
@@ -68,10 +77,6 @@ p7 = bestpredictions.myFirstNN(pcb.train, pcb.test)
 # pcb.scorePrediction(p4)
 # pcb.debugWithTimer("scoring p5: ")
 # pcb.scorePrediction(p5)
-# pcb.debugWithTimer("scoring p6: ")
-# pcb.scorePrediction(p6)
-pcb.debugWithTimer("scoring p7: ")
-pcb.scorePrediction(p7)
 
 predictionToSaveFull = p7
 

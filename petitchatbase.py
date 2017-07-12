@@ -37,7 +37,6 @@ def are_we_running_in_debug_mode():
         print("we're not running in debug mode")
         return False
 
-
 # because sklearn's has its own random seed.
 def deterministic_train_test_split(list, test_size):
     random.shuffle(list)
@@ -70,7 +69,7 @@ userproductstats = []
 truth = []
 truthperuser = []
 usersInTest = []
-
+uniqueproductperusercache = []
 
 train =[]
 test = []
@@ -152,29 +151,37 @@ def eval_fun(labels, preds):
 
 
 def scorePrediction(predictionperitem):
-    global truthperuser, train
+    global truthperuser, train, uniqueproductperusercache
     usercount = 0
     sumf1 = 0.0
     sumf1x = 0.0
 
-    myprediction = predictionperitem[predictionperitem['predy'] == True]
-    myprediction = myprediction.groupby('user_id')['product_id'].apply(list)
+    if predictionperitem is None:
+        return 0,0
+
+    debugWithTimer("preparing score")
     uniquetrainusers = train['user_id'].unique()
-    uniqueproductperuser = userproductstats.groupby('user_id')['product_id'].unique() #past products only
+    myprediction = predictionperitem[predictionperitem['predy'] == True]
+    myprediction = myprediction[~myprediction['user_id'].isin(uniquetrainusers)]
+    myprediction = myprediction.groupby('user_id')['product_id'].apply(list)
+
+    if ( len(uniqueproductperusercache) == 0 ):
+        uniqueproductperuser = userproductstats.groupby('user_id')['product_id'].unique() #past products only
+        uniqueproductperusercache = uniqueproductperuser
+    else:
+        uniqueproductperuser = uniqueproductperusercache
 
     print('Prediction frequency: %s ' % Counter(predictionperitem['predy']))
 
+    debugWithTimer("iterating")
     for index, x in truthperuser.iteritems():
-
-        if index in uniquetrainusers:
-            continue
 
         usercount = usercount + 1
 
         if index in myprediction:
             #eval_fun
-            xx = eval_fun(truthperuser[index], myprediction[index])
-            sumf1 = sumf1 + xx[2]
+            #xx = eval_fun(truthperuser[index], myprediction[index])
+            #sumf1 = sumf1 + xx[2]
 
             # get the full product list, including entirely new products that were not present in training data
             fulluserprods = set().union(list(uniqueproductperuser[index]),list(myprediction[index]))
@@ -189,9 +196,7 @@ def scorePrediction(predictionperitem):
     if usercount != 0:
         sumf1 = sumf1 / usercount
         sumf1x = sumf1x / usercount
-        print(" Scoring :eval_fun:", end='')
-        print(sumf1, end='')
-        print(" sklearn.f1:", end='')
+        print(" Scoring sklearn.f1:", end='')
         print(sumf1x)
     else:
         print("No user, no predictions. Pbbbbbt")
