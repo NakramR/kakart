@@ -33,7 +33,7 @@ pcb.train, pcb.test = pcb.balancedTrainAndTestForValidation()
 
 #print(usersInTest)
 
-
+lastPrediction = []
 ## predictions
 
 # pcb.debugWithTimer("generating random prediction")
@@ -60,6 +60,9 @@ pcb.train, pcb.test = pcb.balancedTrainAndTestForValidation()
 # p5 = predictions.generateXGBoostPrediction(pcb.train, pcb.test)
 # lastPrediction = p5
 
+
+
+
 # pcb.debugWithTimer("generating stephan's logistic prediction")
 # p6 = bestpredictions.sLogistic(pcb.train, pcb.test)
 # pcb.debugWithTimer("scoring p6: ")
@@ -69,17 +72,25 @@ pcb.train, pcb.test = pcb.balancedTrainAndTestForValidation()
 
 #print(pcb.train['user_id'].unique())
 
-pcb.debugWithTimer("generating myFirstNN prediction")
-p7 = bestpredictions.myFirstNN(pcb.train, pcb.test)
-pcb.debugWithTimer("scoring p7: ")
-pcb.scorePrediction(p7)
-lastPrediction = p7
+# pcb.debugWithTimer("generating myFirstNN prediction")
+# p7 = bestpredictions.myFirstNN(pcb.train, pcb.test)
+# pcb.debugWithTimer("scoring p7: ")
+# pcb.scorePrediction(p7)
+# lastPrediction = p7
 
 # pcb.debugWithTimer("generating mySecondNN prediction")
 # p8 = bestpredictions.mySecondNN(pcb.train, pcb.test)
 # pcb.debugWithTimer("scoring p7: ")
 # pcb.scorePrediction(p8)
 # lastPrediction = p8
+
+
+pcb.debugWithTimer("generating TF prediction")
+p9 = predictions.predictFirstTime(pcb.train, pcb.test)
+lastPrediction = p9
+pcb.debugWithTimer("scoring p9: ")
+pcb.scorePrediction(p9)
+lastPrediction = p9
 
 
 # for i in range(5, 8): #threshold between 0.25 and 0.4 is where the good stuff is, possibly
@@ -99,6 +110,8 @@ lastPrediction = p7
 
 predictionToSaveFull = lastPrediction
 
+if predictionToSaveFull is None:
+    exit(-1)
 pcb.debugWithTimer("creating CSV")
 predictionToSaveFull = predictionToSaveFull[predictionToSaveFull['predy'] == True]
 predictionToSaveTestOnly  = predictionToSaveFull[predictionToSaveFull['user_id'].isin(pcb.usersInTest['user_id'].values.tolist())].groupby('user_id')['product_id'].apply(list)

@@ -7,6 +7,8 @@ import petitchatbase as pcb
 import numpy as np
 from xgboost import XGBClassifier
 from sklearn.metrics import accuracy_score
+import tensorflow as tf
+from collections import Counter
 
 random.seed(42)
 pd.set_option('display.float_format', lambda x: '%.3f' % x)
@@ -90,3 +92,23 @@ def generateXGBoostPrediction(train, test):
     return df
 
 
+def predictFirstTime(train, test):
+    features = ['orderfrequency']
+    tf.set_random_seed(42)
+    x_train = train[features]
+    y_train = np.column_stack(
+        (list(float(not (i)) for i in train['reordered']),
+         list(float(i) for i in train['reordered'])))
+
+    noProducts = len(pcb.products)
+    inputPlaceholder = tf.placeholder('float', [None, noProducts], name='myWonderfullInput')
+    truthYPlaceholder = tf.placeholder('float', [None, 1], name="mylabels")
+    for userId, group in train.groupby('user_id'):
+        input = np.zeros(noProducts)
+        output = np.zeros(noProducts)
+        for prodId in group['product_id']:
+            input[prodId] = group[group['product_id'] == prodId]['orderfrequency']
+        for prodId in pcb.truthperuser[userId]:
+            if prodId not in group['product_id'].values:
+                output[prodId] = 1
+        print('Counter input : %s, \n output %s' % ( Counter(input), Counter(output)))
