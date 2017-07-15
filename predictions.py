@@ -77,13 +77,31 @@ def generateLinearRegressionPrediction(train, test):
 
 def generateXGBoostPrediction(train, test):
     print('\n##################\nXGBoost\n##################')
+    features = ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id', 'aisle_id',
+                 'eval_days_since_prior_order', 'numproductorders', 'totaluserorders', 'user_id', 'product_id']
+    param = {}
+    param['booster'] = 'gbtree'
+    param['objective'] = 'binary:logistic'
+    param["eval_metric"] = "error"
+    param['eta'] = 0.3
+    param['gamma'] = 0
+    param['max_depth'] = 6
+    param['min_child_weight'] = 1
+    param['max_delta_step'] = 0
+    param['subsample'] = 1
+    param['colsample_bytree'] = 1
+    param['silent'] = 1
+    param['seed'] = 0
+    param['base_score'] = 0.5
     estimator = XGBClassifier()
+    X_train = train[features]
+    test = test[features]
 
-    X_train = train.drop(['reordered'], axis=1)
     y_train = train['reordered']
 
     estimator.fit(X_train, y_train)
-    y_pred = estimator.predict(test.drop(['reordered'], axis=1))
+    y_pred = estimator.predict(test)
+
 
     df = pd.DataFrame(columns=('user_id', 'product_id', 'predy'))
     df['user_id'] = test['user_id']
@@ -118,60 +136,70 @@ def predictFirstTime(train, test):
 
     hiddenLayerSizes = [1000]
 
+    for prodid in pcb.products['product_id']:
+        tf.reset_default_graph()
 
-    inputPlaceholder = tf.placeholder('float', [None, noProducts], name='myWonderfullInput')
-    truthYPlaceholder = tf.placeholder('float', [None, noProducts], name="mylabels")
-    previousLayer = inputPlaceholder
-    previousLayerSize = noProducts
-    count = 0
-    for layerSize in hiddenLayerSizes:
-        count = count+1
-        w = tf.Variable(tf.random_normal([previousLayerSize, layerSize]), name="w" + str(count))
-        b = tf.Variable(tf.random_normal([layerSize]), name="b" + str(count))
+        # get truth values per product
 
-        preact = tf.add(tf.matmul(previousLayer, w), b, name="preactivation" + str(count))
-        act = tf.nn.relu(preact, name="relu" + str(count))
-        # with tf.name_scope('dropout'):
-        #     layer = tf.nn.dropout(act, neuronDropoutRate, name='dropout'+str(count))
+        outputValuesPerProduct = list([ i[int(prodid)]] for i in outputValues)
 
-        previousLayer = act
-        previousLayerSize = layerSize
+        inputPlaceholder = tf.placeholder('float', [None, noProducts], name='myWonderfullInput')
+        truthYPlaceholder = tf.placeholder('float', [None,1], name="mylabels")
+        previousLayer = inputPlaceholder
+        previousLayerSize = noProducts
+        count = 0
+        for layerSize in hiddenLayerSizes:
+            count = count+1
+            w = tf.Variable(tf.random_normal([previousLayerSize, layerSize]), name="w" + str(count))
+            b = tf.Variable(tf.random_normal([layerSize]), name="b" + str(count))
 
+            preact = tf.add(tf.matmul(previousLayer, w), b, name="preactivation" + str(count))
+            act = tf.nn.relu(preact, name="relu" + str(count))
+            # with tf.name_scope('dropout'):
+            #     layer = tf.nn.dropout(act, neuronDropoutRate, name='dropout'+str(count))
 
-    w = tf.Variable(tf.random_normal([previousLayerSize, noProducts]), name="w" + str(count))
-    preact = tf.matmul(previousLayer, w, name="activation" + str(count))
-    # act = tf.nn.softmax(preact)
-    output = preact
-    lossFunction = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=output, labels=truthYPlaceholder),
-                                  name="xent")
-    prediction = tf.nn.sigmoid(output)
-
-    rmse = tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(prediction, truthYPlaceholder))))
-    correct = tf.reduce_mean(tf.square(tf.subtract(prediction, truthYPlaceholder)), name="correct")
-    accuracy = tf.reduce_mean(tf.cast(correct, 'float'), name="accuracyMeasure")
-
-    train_step = tf.train.AdamOptimizer(learning_rate=0.01).minimize(lossFunction)
+            previousLayer = act
+            previousLayerSize = layerSize
 
 
-    with tf.Session() as s:
-        tf.set_random_seed(42)
-        tf.global_variables_initializer().run()
+        w = tf.Variable(tf.random_normal([previousLayerSize, 1]), name="w" + str(count))
+        preact = tf.matmul(previousLayer, w, name="activation" + str(count))
+        # act = tf.nn.softmax(preact)
+        output = preact
+        lossFunction = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=output, labels=truthYPlaceholder),
+                                      name="xent")
+        prediction = tf.nn.sigmoid(output)
 
-        batchSize = 100
-        curStep = 1
+        rmse = tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(prediction, truthYPlaceholder))))
+        correct = tf.reduce_mean(tf.square(tf.subtract(prediction, truthYPlaceholder)), name="correct")
+        accuracy = tf.reduce_mean(tf.cast(correct, 'float'), name="accuracyMeasure")
 
-        for curStep in range(1,int(len(outputValues)/batchSize)+1):
-            batch_x = inputValues[(curStep-1)*batchSize:(curStep)*batchSize]
-            batch_y = outputValues[(curStep-1)*batchSize:(curStep)*batchSize]
+        train_step = tf.train.AdamOptimizer(learning_rate=0.01).minimize(lossFunction)
 
-            feed_dict = {inputPlaceholder: batch_x, truthYPlaceholder: batch_y}
-            train_step.run(feed_dict=feed_dict)
+        acc = 0
+        r = 0
+        err = 0
+        with tf.Session() as s:
+            tf.set_random_seed(42)
+            tf.global_variables_initializer().run()
 
-            if (curStep % 10 == 0):
-                acc, r, err = s.run([accuracy, rmse, lossFunction], feed_dict=feed_dict)
-                print('Accuracy: %s, rmse : %s error:%s ' % (str(acc), r, str(err)))
+            batchSize = 100
+            curStep = 1
 
-        # print('Accuracy: %s, rmse : %s error:%s ' % (str(acc), r, str(err)))
+            feed_dict = {}
+            for curStep in range(1,int(len(outputValuesPerProduct)/batchSize)+2):
+                batch_x = inputValues[(curStep-1)*batchSize:(curStep)*batchSize]
+                batch_y = outputValuesPerProduct[(curStep-1)*batchSize:(curStep)*batchSize]
+
+                feed_dict = {inputPlaceholder: batch_x, truthYPlaceholder: batch_y}
+                train_step.run(feed_dict=feed_dict)
+
+                if (curStep % 10 == 0):
+                    acc, r, err = s.run([accuracy, rmse, lossFunction], feed_dict=feed_dict)
+                    print('Accuracy: %s, rmse : %s error:%s ' % (str(acc), r, str(err)))
+
+            acc, r, err = s.run([accuracy, rmse, lossFunction], feed_dict=feed_dict)
+            print('Accuracy for product %s: %s, rmse : %s error:%s ' % (prodid, str(acc), r, str(err)))
 
     # o = prediction.eval(feed_dict={input:x_test})
 

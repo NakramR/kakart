@@ -56,9 +56,12 @@ lastPrediction = []
 # p4 = predictions.generateLinearRegressionPrediction(pcb.train, pcb.test)
 # lastPrediction = p4
 #
-# pcb.debugWithTimer("generating xgboost prediction")
-# p5 = predictions.generateXGBoostPrediction(pcb.train, pcb.test)
-# lastPrediction = p5
+pcb.debugWithTimer("generating xgboost prediction")
+p5 = predictions.generateXGBoostPrediction(pcb.train, pcb.test)
+pcb.scorePrediction(p5)
+lastPrediction = p5
+# 10k f1:0.331689111983
+
 
 
 
@@ -85,12 +88,12 @@ lastPrediction = []
 # lastPrediction = p8
 
 
-pcb.debugWithTimer("generating TF prediction")
-p9 = predictions.predictFirstTime(pcb.train, pcb.test)
-lastPrediction = p9
-pcb.debugWithTimer("scoring p9: ")
-pcb.scorePrediction(p9)
-lastPrediction = p9
+# pcb.debugWithTimer("generating TF prediction")
+# p9 = predictions.predictFirstTime(pcb.train, pcb.test)
+# lastPrediction = p9
+# pcb.debugWithTimer("scoring p9: ")
+# pcb.scorePrediction(p9)
+# lastPrediction = p9
 
 
 # for i in range(5, 8): #threshold between 0.25 and 0.4 is where the good stuff is, possibly
