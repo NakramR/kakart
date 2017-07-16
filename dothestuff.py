@@ -13,11 +13,6 @@ pcb.maxuserid = '100'
 #pcb.maxuserid = '1000000000'
 
 
-# print('blah')
-# pcb.getUserProductStats('1000000000')
-# pcb.userproductstats.to_csv('data\\cache\\userproductstats' + '1000000000' + '.csv')
-# print('blah')
-
 if sys.argv[1]:
     pcb.maxuserid = str(sys.argv[1])
 
@@ -44,7 +39,7 @@ lastPrediction = []
 # p2 = bestpredictions.predictOverFrequencyThreshold(0.35)
 # pcb.debugWithTimer("scoring p2: ")
 # pcb.scorePrediction(p2)
-# 10k f1:0.314086319171    full: f1:0.305183197346
+# # 10k f1:0.314086319171    full: f1:0.305183197346
 # lastPrediction = p2
 
 #
@@ -61,6 +56,8 @@ lastPrediction = []
 # pcb.scorePrediction(p5)
 # lastPrediction = p5
 # 10k f1:0.331689111983
+
+
 
 
 
@@ -101,6 +98,13 @@ pcb.scorePrediction(p10)
 lastPrediction = p10
 
 
+pcb.debugWithTimer("generating myFirstNN prediction")
+p10 = bestpredictions.myThirdNN(pcb.train, pcb.test)
+pcb.debugWithTimer("scoring p7: ")
+pcb.scorePrediction(p10)
+lastPrediction = p10
+
+
 # for i in range(5, 8): #threshold between 0.25 and 0.4 is where the good stuff is, possibly
 #      pcb.debugWithTimer("generating freq threshold prediction + " + str(i*0.05))
 #      p2 = bestpredictions.predictOverFrequencyThreshold(i*0.05)
@@ -109,12 +113,11 @@ lastPrediction = p10
 
 
 
-# pcb.debugWithTimer("scoring p3: ")
-# pcb.scorePrediction(p3)
-# pcb.debugWithTimer("scoring p4: ")
-# pcb.scorePrediction(p4)
-# pcb.debugWithTimer("scoring p5: ")
-# pcb.scorePrediction(p5)
+#combined = combinePredictions([p2, p5, p7])
+
+
+
+
 
 predictionToSaveFull = lastPrediction
 
