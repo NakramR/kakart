@@ -242,7 +242,7 @@ def lstm(train, test):
     Hr, H = tf.nn.dynamic_rnn(mcell, X, initial_state=Hin)
 
     Hf = tf.reshape(Hr, [-1, CELLSIZE])
-    Ylogits = layers.linear(Hf, ALPHASIZE)
+    Ylogits = layers.linear(Hf, None, None)#batchsize, seqlen,
     Y = tf.nn.softmax(Ylogits)
     Yp = tf.argmax(Y, 1)
     Yp = tf.reshape(Yp, [batchsize, -1 ])
