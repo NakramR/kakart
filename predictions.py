@@ -212,7 +212,7 @@ def predictFirstTime(train, test):
             acc, r, err = s.run([accuracy, rmse, lossFunction], feed_dict=feed_dict)
             print('Accuracy for product %s: %s, rmse : %s error:%s ' % (prodid, str(acc), r, str(err)))
 
-    # o = prediction.eval(feed_dict={input:x_test})
+    o = prediction.eval(feed_dict={input:test})
 
     df = pd.DataFrame(columns=('user_id', 'product_id', 'predy'))
     df['user_id'] = test['user_id']
@@ -227,15 +227,17 @@ def lstm(train, test):
     ALPHASIZE =  len(pcb.products)# number of products
     CELLSIZE = 512
     NLAYERS = 2
-    Xd = tf.placeholder(tf.uint8, [None, None ])
-    X = tf.one_hot(Xd, ALPHASIZE, 1.0, 0.0)
+    Xd = tf.placeholder(tf.uint8, [None, None,1 ])#batchsize, seqlen,
+    #X = tf.one_hot(Xd, ALPHASIZE, 1.0, 0.0)
+    X = Xd
 
-    Yd = tf.placeholder(tf.uint8, [None, None])
-    Y_ = tf.one_hot(Xd, ALPHASIZE, 1.0, 0.0)
+    Yd = tf.placeholder(tf.uint8, [None, None,1])
+    #Y_ = tf.one_hot(Yd, ALPHASIZE, 1.0, 0.0)
+    Y_ = Yd
 
     Hin = tf.placeholder(tf.float32, [None, CELLSIZE * NLAYERS])
 
-    cell = tf.contrib.rnn.LSTMCell(CELLSIZE)
+    cell = tf.contrib.rnn.GRUCell(CELLSIZE)
     mcell = tf.contrib.rnn.MultiRNNCell([cell] * NLAYERS, state_is_tuple = False)
     Hr, H = tf.nn.dynamic_rnn(mcell, X, initial_state=Hin)
 
@@ -245,10 +247,10 @@ def lstm(train, test):
     Yp = tf.argmax(Y, 1)
     Yp = tf.reshape(Yp, [batchsize, -1 ])
 
-    loss = tf.nn.softmax_cross_entropy_with_logits(Ylogits, Y_)
+    loss = tf.nn.softmax_cross_entropy_with_logits(logits = Ylogits, labels =Y_)
     train_step = tf.train.AdamOptimizer(1e-3).minimize(loss)
 
-    with tf.InteractiveSession() as sess:
+    with tf.Session() as sess:
         curStep = 1
 
         for curStep in range(1, int(len(train) / batchsize) + 1):
