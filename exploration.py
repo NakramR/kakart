@@ -56,7 +56,7 @@ departments = pd.read_csv('data\\departments.csv')
 prod_prior = [] #pd.read_csv('data\\order_products__prior.csv')
 prod_train = [] #pd.read_csv('data\\order_products__train.csv')
 orders = [] #pd.read_csv('data\\orders.csv')
-userproductstats = []
+userProductStats = []
 
 
 ## Save to postgres
@@ -78,7 +78,7 @@ userproductstats = []
 
 
 def initData(maxusers):
-    global prod_prior, prod_train, orders, userproductstats
+    global prod_prior, prod_train, orders, userProductStats
 
     if os.path.isfile('data\\cache\\prod_prior' + maxusers + '.csv'):
         prod_prior = pd.read_csv('data\\cache\\prod_prior' + maxusers + '.csv')
@@ -92,11 +92,11 @@ def initData(maxusers):
         prod_train.to_csv('data\\cache\\prod_train' + maxusers + '.csv')
         orders.to_csv('data\\cache\\orders' + maxusers + '.csv')
 
-    if os.path.isfile('data\\cache\\userproductstats' + maxusers + '.csv'):
-        userproductstats = pd.read_csv('data\\cache\\userproductstats' + maxusers + '.csv')
+    if os.path.isfile('data\\cache\\userProductStats' + maxusers + '.csv'):
+        userproductstats = pd.read_csv('data\\cache\\userProductStats' + maxusers + '.csv')
     else:
         userproductstats = getUserProductStats(maxusers)
-        userproductstats.to_csv('data\\cache\\userproductstats' + maxusers + '.csv')
+        userproductstats.to_csv('data\\cache\\userProductStats' + maxusers + '.csv')
 
 
 
@@ -169,8 +169,8 @@ ORDER BY user_id, frequency DESC, product_id"""
 def generateDecisionTreePrediction():
     print('Decision tree...')
     estimator = DecisionTreeClassifier(max_leaf_nodes=10, random_state=0)
-    train = userproductstats[userproductstats['testortrain'] == 'train']
-    test = userproductstats[userproductstats['testortrain'] == 'test']
+    train = userProductStats[userProductStats['testortrain'] == 'train']
+    test = userProductStats[userProductStats['testortrain'] == 'test']
 
     train = train.drop(['testortrain'], axis=1)
     test = test.drop(['testortrain'], axis=1)
@@ -197,18 +197,18 @@ def generateDecisionTreeByUserPrediction():
     estimator = DecisionTreeClassifier(max_leaf_nodes=7, random_state=0)
 
     prediction = []
-    for name, group in userproductstats.groupby('user_id'):
+    for name, group in userProductStats.groupby('user_id'):
         X_train = group.drop(['reordered'], axis=1)
         y_train = group['reordered']
         estimator.fit(X_train, y_train)
         y_pred = estimator.predict(X_train)
         prediction.extend(y_pred)
     #uniqueUserId = X_train.user_id.unique()
-    print('pred : ', len(prediction), ' shape ', userproductstats.shape)
+    print('pred : ', len(prediction), ' shape ', userProductStats.shape)
 
     df = pd.DataFrame(columns=('user_id', 'product_id', 'ordered'))
-    df['user_id'] = userproductstats['user_id']
-    df['product_id'] = userproductstats['product_id']
+    df['user_id'] = userProductStats['user_id']
+    df['product_id'] = userProductStats['product_id']
     df['ordered'] = prediction
 
     return df
@@ -219,7 +219,7 @@ def generateDecisionTreeByUserPrediction():
 def generateRandomPrediction():
     randpred = pd.DataFrame(columns=('user_id', 'product_id', 'ordered'))
     debugWithTimer('reading distinct user products')
-    userpriorproducts = userproductstats
+    userpriorproducts = userProductStats
 
     #userpriorproducts = pd.read_sql('SELECT DISTINCT prod_prior.product_id, orders.user_id FROM prod_prior LEFT JOIN orders ON orders.order_id = prod_prior.order_id WHERE user_id < ' + maxuserid, postgresconnection)
 
@@ -275,8 +275,8 @@ train, test = train_test_split(trainorders, test_size = 0.2)
 
 
 debugWithTimer("generating random prediction")
-X_train = userproductstats.drop(['reordered'], axis=1)
-y_train = userproductstats['reordered']
+X_train = userProductStats.drop(['reordered'], axis=1)
+y_train = userProductStats['reordered']
 
 #p1 = generateRandomPrediction()
 p1 = generateDecisionTreePrediction()

@@ -67,7 +67,7 @@ debugWithTimer("done reading CSVs")
 prod_prior = [] #pd.read_csv('data\\order_products__prior.csv')
 prod_train = [] #pd.read_csv('data\\order_products__train.csv')
 orders = [] #pd.read_csv('data\\orders.csv')
-userproductstats = []
+userProductStats = []
 truth = []
 truthperuser = []
 usersInTest = []
@@ -109,36 +109,34 @@ test = []
 
 
 def initData(maxusers):
-    global prod_prior, prod_train, orders, userproductstats, truth, truthperuser, usersInTest
+    global prod_prior, prod_train, orders, userProductStats, truth, truthperuser, usersInTest
 
-    if os.path.isfile('data\\cache\\prod_prior' + maxusers + '.csv'):
-        prod_prior = pd.read_csv('data\\cache\\prod_prior' + maxusers + '.csv')
-        prod_train = pd.read_csv('data\\cache\\prod_train' + maxusers + '.csv')
-        orders = pd.read_csv('data\\cache\\orders' + maxusers + '.csv')
-    else:
-        prod_prior = pd.read_sql('SELECT orders.user_id, prod_prior.* FROM prod_prior LEFT JOIN orders ON orders.order_id = prod_prior.order_id WHERE user_id < ' + maxusers, postgresconnection)
-        prod_train = pd.read_sql('SELECT orders.user_id, prod_train.* FROM prod_train LEFT JOIN orders ON orders.order_id = prod_train.order_id WHERE user_id < ' + maxusers, postgresconnection)
-        orders = pd.read_sql('SELECT * FROM orders WHERE user_id < ' + maxusers, postgresconnection)
-        prod_prior.to_csv('data\\cache\\prod_prior' + maxusers + '.csv')
-        prod_train.to_csv('data\\cache\\prod_train' + maxusers + '.csv')
-        orders.to_csv('data\\cache\\orders' + maxusers + '.csv')
+    files = {'prod_prior'       : 'SELECT orders.user_id, prod_prior.* FROM prod_prior LEFT JOIN orders ON orders.order_id = prod_prior.order_id WHERE user_id < '
+            ,'prod_train'       : 'SELECT orders.user_id, prod_train.* FROM prod_train LEFT JOIN orders ON orders.order_id = prod_train.order_id WHERE user_id < '
+            , 'orders'          : 'SELECT * FROM orders_e WHERE user_id < '
+            , 'truth'           : 'SELECT orders.user_id, prod_train.product_id, TRUE AS ordered FROM prod_train LEFT JOIN orders ON orders.order_id = prod_train.order_id WHERE user_id < '
+            , 'usersInTest'     : "SELECT user_id, order_id FROM orders WHERE eval_set = 'test' AND user_id < "
+            , 'userProductStats': '__THIS_IS_REPLACED_BY_A_FUNCTION_CALL__'
+             }
 
-    if os.path.isfile('data\\cache\\userproductstats' + maxusers + '.csv'):
-        userproductstats = pd.read_csv('data\\cache\\userproductstats' + maxusers + '.csv')
-    else:
-        userproductstats = getUserProductStats(maxusers)
-        userproductstats.to_csv('data\\cache\\userproductstats' + maxusers + '.csv')
+    for file, query in files.items():
+        filepath = 'data/cache/' + file + maxusers + '.csv'
+        if os.path.isfile(filepath):
+            cmd = "global " + file + ";" + file + " = pd.read_csv(\'" + filepath + "\')"
+            exec(cmd)
+        else:
+            if file == 'userProductStats':
+                userProductStats = getUserProductStats(maxusers)
+            else:
+                x = pd.read_sql(query + maxusers, postgresconnection)
+                exec( "global " + file + ";" + file + ' = x')
 
-    if os.path.isfile('data\\cache\\truth' + maxusers + '.csv'):
-        truth = pd.read_csv('data\\cache\\truth' + maxusers + '.csv')
-        usersInTest = pd.read_csv('data\\cache\\usersintest' + maxusers + '.csv')
-    else:
-        truth = pd.read_sql('SELECT orders.user_id, prod_train.product_id, TRUE AS ordered FROM prod_train LEFT JOIN orders ON orders.order_id = prod_train.order_id WHERE user_id < ' + maxuserid, postgresconnection)
-        usersInTest = pd.read_sql("SELECT user_id, order_id FROM orders WHERE eval_set = 'test' AND user_id < " + maxuserid, postgresconnection)
-        truth.to_csv('data\\cache\\truth' + maxusers + '.csv')
-        usersInTest.to_csv('data\\cache\\usersintest' + maxusers + '.csv')
+            cmd = file + ".to_csv(\'" + filepath + "\')"
+            exec(cmd)
 
     truthperuser = truth.groupby('user_id')['product_id'].apply(list)
+
+    print('blah')
 
 
 def eval_fun(labels, preds):
@@ -168,7 +166,7 @@ def scorePrediction(predictionperitem):
     myprediction = myprediction.groupby('user_id')['product_id'].apply(list)
 
     if ( len(uniqueproductperusercache) == 0 ):
-        uniqueproductperuser = userproductstats.groupby('user_id')['product_id'].unique() #past products only
+        uniqueproductperuser = userProductStats.groupby('user_id')['product_id'].unique() #past products only
         uniqueproductperusercache = uniqueproductperuser
     else:
         uniqueproductperuser = uniqueproductperusercache
@@ -230,7 +228,16 @@ def addPercentages(user_id):
 
     userproducts[user_id] = allProducts
 
+def calculateAverageProductOrders(row, *args):
+    #print(row['orderfrequency'])
+    threshold = args[0]
 
+    nbpdorders = sum(int(x >= row['totaluserorders']-threshold) for x in row['order_containing_product'])
+    if threshold > row['totaluserorders']:
+        nbpdorders = float(nbpdorders)/row['totaluserorders']
+    else:
+        nbpdorders = float(nbpdorders) / threshold
+    return nbpdorders
 
 def getUserProductStats(maxuser):
     query = "SELECT u.*, prod_train.reordered FROM userproducttable2 u LEFT JOIN prod_train on u.eval_order_id = prod_train.order_id AND u.product_id = prod_train.product_id WHERE user_id < " + maxuser
@@ -246,6 +253,18 @@ def getUserProductStats(maxuser):
     d["dayfrequency"].fillna(0, inplace=True)
     d["reordered"].fillna(0, inplace=True)
 
+    # x = list(map(int,d['product_order_sequence'][0].split(',')))
+    # x.sort()
+    d['order_containing_product'] = d['product_order_sequence'].apply(lambda x: list(map(int, x.split(','))))
+    d['order_containing_product'].apply(lambda x: x.sort())
+
+
+    for i in range(1, 20):
+        d['orderfreqlast' + str(i*5)] = d.apply(calculateAverageProductOrders, args=(i*5,), axis=1)
+
+    d['orderfreqoverratio'] = d.apply( lambda row: 0 if row['dayfrequency'] == 0 else float(row['days_without_product_order'])/row['dayfrequency']
+                                            , axis=1) # days without product order expressed as as a ratio of the usual order frequency.
+
     return d
 
 
@@ -257,8 +276,8 @@ def missingValues(df):
 
 
 def trainAndTestForValidation():
-    originalTrain = userproductstats[userproductstats['testortrain'] != 'test']
-    originalTest = userproductstats[userproductstats['testortrain'] == 'test']
+    originalTrain = userProductStats[userProductStats['testortrain'] != 'test']
+    originalTest = userProductStats[userProductStats['testortrain'] == 'test']
     print('originalTrain : ', originalTrain.shape, ' originalTest ', originalTest.shape)
 
     uniqueusers = originalTrain['user_id'].unique()
@@ -274,9 +293,9 @@ def trainAndTestForValidation():
     print('train : ', train.shape, ' test ', test.shape)
     return train, test
 
-def balancedTrainAndTestForValidation():
-    originalTrain = userproductstats[userproductstats['testortrain'] != 'test']
-    originalTest = userproductstats[userproductstats['testortrain'] == 'test']
+def balancedTrainAndTestForValidation(mostrecent=100):
+    originalTrain = userProductStats[userProductStats['testortrain'] != 'test']
+    originalTest = userProductStats[userProductStats['testortrain'] == 'test']
     print('originalTrain : ', originalTrain.shape, ' originalTest ', originalTest.shape)
 
     uniqueusers = originalTrain['user_id'].unique()
@@ -303,8 +322,8 @@ def balancedTrainAndTestForValidation():
 
 
 def trainAndTestForSubmission():
-    originalTrain = userproductstats[userproductstats['testortrain'] != 'test']
-    originalTest = userproductstats[userproductstats['testortrain'] == 'test']
+    originalTrain = userProductStats[userProductStats['testortrain'] != 'test']
+    originalTest = userProductStats[userProductStats['testortrain'] == 'test']
     print('originalTrain : ', originalTrain.shape, ' originalTest ', originalTest.shape)
 
     return originalTrain, originalTest

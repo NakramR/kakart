@@ -10,11 +10,12 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import sys
 import operator
+import math
 
 def generateRandomPrediction():
     randpred = pd.DataFrame(columns=('user_id', 'product_id', 'predy'))
     pcb.debugWithTimer('reading distinct user products')
-    userpriorproducts = pcb.userproductstats
+    userpriorproducts = pcb.userProductStats
 
     pcb.debugWithTimer('iterating over prior products')
     temp = []
@@ -27,7 +28,7 @@ def generateRandomPrediction():
     return randpred
 
 def predictOverFrequencyThreshold(threshold):
-    userpriorproducts = pcb.userproductstats
+    userpriorproducts = pcb.userProductStats
 
     userpriorproducts['predy'] = userpriorproducts['orderfrequency'] > threshold
 
@@ -117,7 +118,7 @@ def myFirstNN(train, test):
     possibleOptimizers = ['adagrad', 'adam']
     possibleFeatures = [features4, features9] #[features1, features4, features9]
     possibleDropoutRates = [0.75, 0.9, 1.0 ]
-    possibleNetworkLayerShapes = [ [20], [20,20], [50,20], [20,20,20], [100,50, 20] ]
+    possibleNetworkLayerShapes = [ [20], [20,20], [30,20], [30,20,10], [30], [10], [30,10] ]
 
     hyperParamExplorationDict = []
     for fdef in possibleFeatures:
@@ -140,7 +141,7 @@ def myFirstNN(train, test):
     # just one, the best
     # hyperParamExplorationDict = [{'features': ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id', 'aisle_id', 'eval_days_since_prior_order', 'numproductorders', 'totaluserorders', 'eval_days_since_prior_order'], 'hiddenLayerSizes': [50, 20], 'dropoutRate': 0.9, 'optimizerName': 'adam', 'lr': 0.001, 'lf': 'softmaxxent', 'extra': '-balancedinput'}]
     # hyperParamExplorationDict = [{'features': ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id'], 'hiddenLayerSizes': [20, 20], 'dropoutRate': 0.75, 'optimizerName': 'adam', 'lr': 0.001, 'lf': 'softmaxxent','extra': '-balancedinput'}, {'features': ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id', 'aisle_id', 'eval_days_since_prior_order', 'numproductorders', 'totaluserorders', 'eval_days_since_prior_order'], 'hiddenLayerSizes': [50, 20], 'dropoutRate': 0.9, 'optimizerName': 'adam', 'lr': 0.001, 'lf': 'softmaxxent', 'extra': '-balancedinput'}]
-    hyperParamExplorationDict = [{'features': ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id', 'aisle_id','eval_days_since_prior_order', 'numproductorders', 'totaluserorders', 'eval_days_since_prior_order'],'hiddenLayerSizes': [50, 20], 'dropoutRate': 0.9, 'optimizerName': 'adam', 'lr': 0.001, 'lf': 'softmaxxent','extra': '-balancedinput'}]
+    hyperParamExplorationDict = [{'features': ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id', 'aisle_id','eval_days_since_prior_order', 'numproductorders', 'totaluserorders', 'eval_days_since_prior_order'],'hiddenLayerSizes': [50, 20, 5], 'dropoutRate': 0.9, 'optimizerName': 'adam', 'lr': 0.001, 'lf': 'softmaxxent','extra': '-balancedinput'}]
     # 0.32838
     bestScore = 0
     bestDefinition = {}
@@ -347,6 +348,286 @@ def myFirstNN(train, test):
     return bestDF
 
 
+def myThirdNN(train, test):
+
+    # define hyperparameters
+
+    allfeatures = ['orderfrequency', 'dayfrequency', 'department_id', 'aisle_id', 'days_without_product_order','eval_days_since_prior_order',
+                   'numproductorders', 'totaluserorders','day_number_of_last_product_order', 'eval_order_dow', 'orderfreqoverratio', 'orderfreqlast5', 'orderfreqlast10',
+       'orderfreqlast15', 'orderfreqlast20', 'orderfreqlast25',
+       'orderfreqlast30', 'orderfreqlast35', 'orderfreqlast40',
+       'orderfreqlast45', 'orderfreqlast50', 'orderfreqlast55',
+       'orderfreqlast60', 'orderfreqlast65', 'orderfreqlast70',
+       'orderfreqlast75', 'orderfreqlast80', 'orderfreqlast85',
+       'orderfreqlast90', 'orderfreqlast95'
+]
+
+    features9 = ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id', 'aisle_id','eval_days_since_prior_order', 'numproductorders', 'totaluserorders', 'orderfreqoverratio', 'orderfreqlast5', 'orderfreqlast10',
+       'orderfreqlast15', 'orderfreqlast20', 'orderfreqlast25',
+       'orderfreqlast30', 'orderfreqlast35', 'orderfreqlast40',
+       'orderfreqlast45', 'orderfreqlast50', 'orderfreqlast55',
+       'orderfreqlast60', 'orderfreqlast65', 'orderfreqlast70',
+       'orderfreqlast75', 'orderfreqlast80', 'orderfreqlast85',
+       'orderfreqlast90', 'orderfreqlast95']
+    features4 = ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id']
+    features1 = ['orderfrequency']
+
+    bSaveTFSummary = False
+    if (len(sys.argv) > 2 and sys.argv[2] == '1' and not (pcb.are_we_running_in_debug_mode())):
+        bSaveTFSummary = True  # don't save summary in debug mode (incomplete data) or when explicitly requested not
+    else:
+        bSaveTFSummary = False
+
+    tf.set_random_seed(42)
+
+    possibleOptimizers = ['adagrad', 'adam']
+    possibleFeatures = [features9] # [features4, features9] #[features1, features4, features9]
+    possibleDropoutRates =  [0.9] #[0.75, 0.9, 1.0 ]
+    possibleNetworkLayerShapes = [ [20], [20,20], [50,20] ] #, [20,20,20], [100,50, 20] ]
+    possibleNetworkLayerShapes = [ [20], [20,20], [30,20], [30,20,10], [30], [10], [30,10] ]
+    possibleLearningRates = [0.1, 0.01, 0.001]
+
+    hyperParamExplorationDict = []
+    for fdef in possibleFeatures:
+        for nshape in possibleNetworkLayerShapes:
+            for optimizerName in possibleOptimizers:
+                for dr in possibleDropoutRates:
+                    for lr in possibleLearningRates:
+                        for vlr in [True,False]:
+                            hyperParamExplorationDict.extend(
+                            [
+                                { 'features': fdef
+                                  ,'hiddenLayerSizes' : nshape
+                                  ,'dropoutRate' : dr
+                                  ,'optimizerName' :optimizerName  # gradientDescent, adagrad, adam
+                                  ,'lr' : lr
+                                  ,'lf' : 'sigmoidxent'  # sigmoidxent, softmaxxent, weighted
+                                  ,'vlr': vlr
+                                  ,'extra' : '-balancedinput-vlr' + str(int(vlr))
+                                }
+                            ]
+                            )
+
+    # just one, the best
+    # hyperParamExplorationDict = [{'features': ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id', 'aisle_id', 'eval_days_since_prior_order', 'numproductorders', 'totaluserorders', 'eval_days_since_prior_order'], 'hiddenLayerSizes': [50, 20], 'dropoutRate': 0.9, 'optimizerName': 'adam', 'lr': 0.001, 'lf': 'softmaxxent', 'extra': '-balancedinput'}]
+    # hyperParamExplorationDict = [{'features': ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id'], 'hiddenLayerSizes': [20, 20], 'dropoutRate': 0.75, 'optimizerName': 'adam', 'lr': 0.001, 'lf': 'softmaxxent','extra': '-balancedinput'}, {'features': ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id', 'aisle_id', 'eval_days_since_prior_order', 'numproductorders', 'totaluserorders', 'eval_days_since_prior_order'], 'hiddenLayerSizes': [50, 20], 'dropoutRate': 0.9, 'optimizerName': 'adam', 'lr': 0.001, 'lf': 'softmaxxent', 'extra': '-balancedinput'}]
+    # hyperParamExplorationDict = [{'features': ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id', 'aisle_id','eval_days_since_prior_order', 'numproductorders', 'totaluserorders'],'hiddenLayerSizes': [50, 20], 'dropoutRate': 0.9, 'optimizerName': 'adam', 'lr': 0.001, 'lf': 'sigmoidxent','extra': '-balancedinput'}]
+    # 0.32838
+    # 10k 0.33857: {'features': ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id', 'aisle_id',
+    #                        'eval_days_since_prior_order', 'numproductorders', 'totaluserorders', 'orderfreqoverratio',
+    #                        'orderfreqlast5', 'orderfreqlast10', 'orderfreqlast15', 'orderfreqlast20', 'orderfreqlast25',
+    #                        'orderfreqlast30', 'orderfreqlast35', 'orderfreqlast40', 'orderfreqlast45',
+    #                        'orderfreqlast50', 'orderfreqlast55', 'orderfreqlast60', 'orderfreqlast65',
+    #                        'orderfreqlast70', 'orderfreqlast75', 'orderfreqlast80', 'orderfreqlast85',
+    #                        'orderfreqlast90', 'orderfreqlast95'], 'hiddenLayerSizes': [10], 'dropoutRate': 0.9,
+    #           'optimizerName': 'adam', 'lr': 0.1, 'lf': 'sigmoidxent', 'extra': '-balancedinput'}
+
+    bestScore = 0
+    bestDefinition = {}
+    bestDF = None
+    allScores = {}
+
+    lastfeatures = None
+    x_train = None
+    y_train = None
+
+    for oneDefinition in hyperParamExplorationDict : #placeholder for hyperparam exploration
+        features = oneDefinition['features']
+        hiddenLayerSizes =oneDefinition['hiddenLayerSizes']
+        dropoutRate =oneDefinition['dropoutRate']
+        optimizerName =oneDefinition['optimizerName']
+        initiallr=oneDefinition['lr']
+        lf =oneDefinition['lf']
+        extra = oneDefinition['extra']
+        variableLearningRate = oneDefinition['vlr']
+
+        nbfeatures = len(features)
+
+        if lastfeatures != features:
+            x_train = train[features]
+            y_train = train['reordered']
+            y_train = list([i] for i in y_train)
+            lastfeatures = features
+
+
+        tf.reset_default_graph()
+
+        # define input and output
+        with tf.name_scope('input'):
+            inputPlaceholder = tf.placeholder('float', [None, nbfeatures], name='myWonderfullInput')
+            truthYPlaceholder = tf.placeholder('float', [None, 1], name="mylabels")
+            tflr = tf.placeholder(tf.float32)
+
+        with tf.name_scope('dropout_rate'):
+            neuronDropoutRate = tf.placeholder('float')
+            tf.summary.scalar('dropout_keep_probability', neuronDropoutRate)
+
+
+        hyperParamStr = makeHyperParamString(hiddenLayerSizes, dropoutRate, nbfeatures, optimizerName, initiallr, lf, extra)
+
+        previousLayer = inputPlaceholder
+        previousLayerSize = nbfeatures
+        count = 0
+        for layerSize in hiddenLayerSizes:
+            count = count+1
+            with tf.name_scope('hiddenLayer' + str(count)):
+                with tf.name_scope('weights'):
+                    w = tf.Variable(tf.random_normal([previousLayerSize, layerSize]), name="w" + str(count))
+                with tf.name_scope('biases'):
+                    b = tf.Variable(tf.random_normal([layerSize]), name="b" + str(count))
+
+                preact = tf.add(tf.matmul(previousLayer, w), b, name="preactivation" + str(count))
+                act = tf.nn.relu(preact, name="relu" + str(count))
+                with tf.name_scope('dropout'):
+                    layer = tf.nn.dropout(act, neuronDropoutRate, name='dropout'+str(count))
+                tf.summary.histogram("weights",w)
+                tf.summary.histogram("biases", b)
+                #tf.summary.histogram("preactivation", preact)
+                tf.summary.histogram("activation", act)
+            previousLayer = layer
+            previousLayerSize = layerSize
+
+        with tf.name_scope('output'):
+            with tf.name_scope('weights'):
+                w = tf.Variable(tf.random_normal([previousLayerSize, 1]), name="w" + str(count))
+            preact = tf.matmul(previousLayer, w, name="activation" + str(count))
+
+#            act = tf.sigmoid(preact, name="prediction")
+            previousLayer = preact
+            tf.summary.histogram("weights", w)
+            tf.summary.histogram("biases", b)
+            tf.summary.histogram("activation", preact)
+            #tf.summary.histogram("activation", act)
+
+        output = previousLayer
+
+        with tf.name_scope('measures'):
+            if ( lf == 'weighted'):
+                lossFunction = tf.reduce_mean(tf.nn.weighted_cross_entropy_with_logits(logits=output, targets=truthYPlaceholder, pos_weight=10), name="xent")
+            elif ( lf == 'softmaxxent' ):
+                lossFunction = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=output, labels=truthYPlaceholder), name="xent")
+            elif ( lf == 'sigmoidxent' ):
+                lossFunction = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=output, labels=truthYPlaceholder), name="xent")
+
+            tf.summary.scalar('lossFunction', lossFunction)
+
+            #f1ScorePerUser = tf.placeholder('float', [1], name="f1ScorePerUser")
+            #tf.summary.scalar('f1ScorePerUser', f1ScorePerUser)
+
+            #set the prediction and truth values
+            prediction = tf.sigmoid(output, name="prediction")
+            tf.summary.histogram('prediction', prediction)
+
+            #trainingtruth = tf.argmax(truthYPlaceholder,1, name="truth")
+            #tf.summary.histogram('trainingtruth', trainingtruth)
+
+            error = tf.abs(tf.add(prediction, -truthYPlaceholder), name="correct")
+
+            with tf.name_scope('accuracy'):
+                accuracy = tf.reduce_mean(tf.cast(error, 'float'), name="accuracyMeasure")
+
+            tf.summary.scalar("accuracy", accuracy)
+
+
+        batch = tf.Variable(0, trainable=False)
+        batchSize = 100
+
+        # learning_rate = tf.train.exponential_decay(
+        #     lr,  # Base learning rate.
+        #     global_step=batch * batchSize,  # Current index into the dataset.
+        #     decay_steps=1000,  # Decay step.
+        #     decay_rate=0.95,  # Decay rate.
+        #     staircase=True)
+
+        # create the optimizer (called training step)
+        #
+        with tf.name_scope('train'):
+            if ( optimizerName == 'adagrad' ):
+                train_step = tf.train.AdagradOptimizer(learning_rate=tflr).minimize(lossFunction,
+                                                             global_step=batch)
+            elif ( optimizerName == 'adam'):
+                train_step = tf.train.AdamOptimizer(learning_rate=tflr).minimize(lossFunction,
+                                                             global_step=batch)
+            elif (optimizerName == 'gradientDescent'):
+                train_step = tf.train.GradientDescentOptimizer(learning_rate=tflr).minimize(lossFunction,
+                                                             global_step=batch)
+
+        with tf.Session() as s:
+            tf.set_random_seed(42)
+            tf.global_variables_initializer().run()
+
+            curStep = 1
+
+            if bSaveTFSummary == True:
+                merged_summary = tf.summary.merge_all()
+                file_writer = tf.summary.FileWriter('data/tflogs/' + hyperParamStr)
+                file_writer.add_graph(s.graph)
+
+            #graph = pd.DataFrame(columns=['index', 'accuracy', 'error']);
+            for curStep in range(1,int(len(y_train)/batchSize)+1):
+                batch_x = x_train[(curStep-1)*batchSize:(curStep)*batchSize]
+                batch_y = y_train[(curStep-1)*batchSize:(curStep)*batchSize]
+
+                learning_rate = 1
+                if variableLearningRate == True:
+                    max_learning_rate = initiallr #0.001
+                    min_learning_rate = 0.001
+                    decay_speed = 2000.0  # 0.003-0.0001-2000=>0.9826 done in 5000 iterations
+                    learning_rate = min_learning_rate + (max_learning_rate - min_learning_rate) * math.exp(-(curStep*batchSize) / decay_speed)
+                else:
+                    learning_rate = initiallr
+
+
+                # train
+                feed_dict = {inputPlaceholder: batch_x , truthYPlaceholder: batch_y, neuronDropoutRate : dropoutRate, tflr: learning_rate}
+
+                if ( bSaveTFSummary == True and curStep % 5 == 0 ):
+                    summaryData = s.run(merged_summary,feed_dict)
+                    file_writer.add_summary(summaryData,curStep)
+
+                train_step.run(feed_dict=feed_dict)
+
+                feed_dict = {inputPlaceholder: batch_x , truthYPlaceholder: batch_y, neuronDropoutRate : 1.0}
+                acc, loss = s.run([accuracy, lossFunction], feed_dict=feed_dict)
+                if (curStep % 100 == 0):
+                    print('Accuracy on self: %s loss:%s ' % (str(acc), str(loss)))
+
+            x_test = test[features]
+            y_test = test[['reordered']]
+            #print('Accuracy on test:', accuracy.eval({inputPlaceholder: x_test , truthYPlaceholder: y_test}))
+
+            #print(tf.reduce_mean(tf.cast(tf.equal(tf.argmax(output,1),tf.argmax(y_test)),'float')).eval(feed_dict={inputPlaceholder:x_test}))
+            o = prediction.eval(feed_dict={inputPlaceholder:x_test, neuronDropoutRate : 1.0})
+
+        # cast the predictions as integers
+        xx = list(round(i[0]) for i in o)
+
+        df = pd.DataFrame(columns=('user_id', 'product_id', 'predy'))
+        df['user_id'] = test['user_id']
+        df['product_id'] = test['product_id']
+        df['predy'] = xx
+
+        pcb.debugWithTimer("scoring prediction" + hyperParamStr)
+        _, f1score = pcb.scorePrediction(df)
+        pcb.debugWithTimer("done scoring")
+        if  f1score > bestScore:
+            bestDefinition = oneDefinition
+            bestScore = f1score
+            bestDF = df
+        allScores[str(oneDefinition)] = f1score
+
+    print( '********\n********\n********')
+    print('best score:' + str(round(bestScore,5)) + ' with ' + str(bestDefinition) )
+    print( '********\n********\n********')
+
+    sortedScores = sorted(allScores.items(), key=operator.itemgetter(1))
+    for (definition, score) in sortedScores:
+        print("{:.5f}".format(score) + ':' +definition)
+
+    return bestDF
+
+
+
 # a useful function that takes an input and what size we want the output
 # to be, and multiples the input by a weight matrix plus bias (also creating
 # these variables)
@@ -443,3 +724,12 @@ def mySecondNN(train, test):
 
 
 
+def combinePredictions(predictionArray):
+
+
+    df = pd.DataFrame(columns=('user_id', 'product_id', 'predy'))
+    df['user_id'] = test['user_id']
+    df['product_id'] = test['product_id']
+    df['predy'] = o
+
+    return df
