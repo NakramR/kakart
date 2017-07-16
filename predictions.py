@@ -9,6 +9,8 @@ from xgboost import XGBClassifier
 from sklearn.metrics import accuracy_score
 import tensorflow as tf
 from collections import Counter
+from sklearn.calibration import CalibratedClassifierCV
+from tensorflow.contrib import layers
 
 random.seed(42)
 pd.set_option('display.float_format', lambda x: '%.3f' % x)
@@ -80,27 +82,36 @@ def generateXGBoostPrediction(train, test):
     features = ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id', 'aisle_id',
                  'eval_days_since_prior_order', 'numproductorders', 'totaluserorders', 'user_id', 'product_id']
     param = {}
-    param['booster'] = 'gbtree'
+    #param['booster'] = 'gbtree'
     param['objective'] = 'binary:logistic'
-    param["eval_metric"] = "error"
-    param['eta'] = 0.3
-    param['gamma'] = 0
-    param['max_depth'] = 6
-    param['min_child_weight'] = 1
-    param['max_delta_step'] = 0
-    param['subsample'] = 1
-    param['colsample_bytree'] = 1
-    param['silent'] = 1
-    param['seed'] = 0
-    param['base_score'] = 0.5
-    estimator = XGBClassifier()
+    # param["eval_metric"] = "error"
+    # param['eta'] = 0.3
+    # param['gamma'] = 0
+    param['max_depth'] = 4
+    param['n_estimators'] =80
+    param['learning_rate'] = 0.1
+    # param['min_child_weight'] = 1
+    # param['max_delta_step'] = 0
+    #param['subsample'] = 1
+    # param['colsample_bytree'] = 1
+    # param['silent'] = 1
+    # param['seed'] = 0
+    #param['base_score'] = 0.4
+
     X_train = train[features]
     test = test[features]
 
     y_train = train['reordered']
 
-    estimator.fit(X_train, y_train)
-    y_pred = estimator.predict(test)
+    estimator = XGBClassifier()
+    estimator.set_params(**param)
+    metLearn = CalibratedClassifierCV(estimator, method='sigmoid', cv=5)
+    metLearn.fit(X_train, y_train)
+    y_pred = metLearn.predict(test)
+
+    # estimator.fit(X_train, y_train)
+    # y_pred = estimator.predict(test)
+    print('Predict counter : %s' % (Counter(y_pred)))
 
 
     df = pd.DataFrame(columns=('user_id', 'product_id', 'predy'))
@@ -209,3 +220,44 @@ def predictFirstTime(train, test):
     df['predy'] = o
 
     _, f1score = pcb.scorePrediction(df)
+
+def lstm(train, test):
+    batchsize = 50
+    SEQLEN = 30
+    ALPHASIZE =  len(pcb.products)# number of products
+    CELLSIZE = 512
+    NLAYERS = 2
+    Xd = tf.placeholder(tf.uint8, [None, None ])
+    X = tf.one_hot(Xd, ALPHASIZE, 1.0, 0.0)
+
+    Yd = tf.placeholder(tf.uint8, [None, None])
+    Y_ = tf.one_hot(Xd, ALPHASIZE, 1.0, 0.0)
+
+    Hin = tf.placeholder(tf.float32, [None, CELLSIZE * NLAYERS])
+
+    cell = tf.contrib.rnn.LSTMCell(CELLSIZE)
+    mcell = tf.contrib.rnn.MultiRNNCell([cell] * NLAYERS, state_is_tuple = False)
+    Hr, H = tf.nn.dynamic_rnn(mcell, X, initial_state=Hin)
+
+    Hf = tf.reshape(Hr, [-1, CELLSIZE])
+    Ylogits = layers.linear(Hf, ALPHASIZE)
+    Y = tf.nn.softmax(Ylogits)
+    Yp = tf.argmax(Y, 1)
+    Yp = tf.reshape(Yp, [batchsize, -1 ])
+
+    loss = tf.nn.softmax_cross_entropy_with_logits(Ylogits, Y_)
+    train_step = tf.train.AdamOptimizer(1e-3).minimize(loss)
+
+    with tf.InteractiveSession() as sess:
+        curStep = 1
+
+        for curStep in range(1, int(len(train) / batchsize) + 1):
+            inH = np.zeros([batchsize, CELLSIZE * NLAYERS])
+
+            batch_x = train[(curStep - 1) * batchsize:(curStep) * batchsize]
+            batch_y = train[(curStep - 1) * batchsize:(curStep) * batchsize]
+
+            data = {X: batch_x, Y_: batch_y, Hin : inH}
+            _, y, outH= sess.run([train_step,Yp, H, ],feed_dict=data)
+            inH = outH
+
