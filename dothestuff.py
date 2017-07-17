@@ -55,7 +55,9 @@ lastPrediction = []
 # p5 = predictions.generateXGBoostPrediction(pcb.train, pcb.test)
 # pcb.scorePrediction(p5)
 # lastPrediction = p5
-# # 10k f1:0.331689111983
+# 10k f1:0.331689111983
+
+
 
 
 
@@ -90,12 +92,18 @@ lastPrediction = []
 # pcb.scorePrediction(p9)
 # lastPrediction = p9
 
-
-pcb.debugWithTimer("generating myFirstNN prediction")
-p10 = bestpredictions.myThirdNN(pcb.train, pcb.test)
-pcb.debugWithTimer("scoring p7: ")
+pcb.debugWithTimer("generating LSTM prediction")
+p10 = predictions.lstm(pcb.train, pcb.test)
+pcb.debugWithTimer("scoring p10: ")
 pcb.scorePrediction(p10)
 lastPrediction = p10
+
+
+# pcb.debugWithTimer("generating myFirstNN prediction")
+# p11 = bestpredictions.myThirdNN(pcb.train, pcb.test)
+# pcb.debugWithTimer("scoring p11: ")
+# pcb.scorePrediction(p11)
+# lastPrediction = p11
 
 
 # for i in range(5, 8): #threshold between 0.25 and 0.4 is where the good stuff is, possibly
