@@ -431,7 +431,9 @@ def myThirdNN(train, test):
     x_train = None
     y_train = None
 
+    defCounter = 0
     for oneDefinition in hyperParamExplorationDict : #placeholder for hyperparam exploration
+        print("evaluation definition: (" + str(defCounter) + "/" + str(len(hyperParamExplorationDict)) + ")")
         features = oneDefinition['features']
         hiddenLayerSizes =oneDefinition['hiddenLayerSizes']
         dropoutRate =oneDefinition['dropoutRate']
@@ -616,6 +618,15 @@ def myThirdNN(train, test):
             bestDF = df
         allScores[str(oneDefinition)] = f1score
 
+        # save score to file:
+        f = open('NNscores.txt', 'a')
+        f.write(str(f1score) + ':' + hyperParamStr + ':' + str(oneDefinition) + "\n")
+        f.close()
+
+    f = open('NNscores.txt', 'a')
+    f.write( '\n********\n********\n********')
+    f.write( '\nbest score:' + str(round(bestScore,5)) + ' with ' + str(bestDefinition) )
+    f.write( '\n********\n********\n********')
     print( '********\n********\n********')
     print('best score:' + str(round(bestScore,5)) + ' with ' + str(bestDefinition) )
     print( '********\n********\n********')
@@ -623,6 +634,8 @@ def myThirdNN(train, test):
     sortedScores = sorted(allScores.items(), key=operator.itemgetter(1))
     for (definition, score) in sortedScores:
         print("{:.5f}".format(score) + ':' +definition)
+        f.write("\n{:.5f}".format(score) + ':' +definition)
+    f.close()
 
     return bestDF
 

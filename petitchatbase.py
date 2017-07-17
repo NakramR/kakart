@@ -11,6 +11,7 @@ import os.path
 from sklearn.metrics import f1_score
 from collections import Counter
 import sys
+from ast import literal_eval
 
 
 random.seed(42)
@@ -109,7 +110,7 @@ test = []
 
 
 def initData(maxusers):
-    global prod_prior, prod_train, orders, userProductStats, truth, truthperuser, usersInTest
+    global prod_prior, prod_train, orders, userProductStats, truth, truthperuser, usersInTest, cacheStore
 
     files = {'prod_prior'       : 'SELECT orders.user_id, prod_prior.* FROM prod_prior LEFT JOIN orders ON orders.order_id = prod_prior.order_id WHERE user_id < '
             ,'prod_train'       : 'SELECT orders.user_id, prod_train.* FROM prod_train LEFT JOIN orders ON orders.order_id = prod_train.order_id WHERE user_id < '
@@ -119,22 +120,42 @@ def initData(maxusers):
             , 'userProductStats': '__THIS_IS_REPLACED_BY_A_FUNCTION_CALL__'
              }
 
+    cacheStore = pd.HDFStore('data/cache/store' + str(maxuserid) +'.h5' )
+
     for file, query in files.items():
-        filepath = 'data/cache/' + file + maxusers + '.csv'
-        if os.path.isfile(filepath):
-            cmd = "global " + file + ";" + file + " = pd.read_csv(\'" + filepath + "\')"
-            exec(cmd)
+        if cacheStore.__contains__(file):
+            cachedVar = cacheStore[file]
+            exec("global " + file + ";" + file + ' = cachedVar')
         else:
             if file == 'userProductStats':
-                userProductStats = getUserProductStats(maxusers)
+                x = getUserProductStats(maxusers)
+                userProductStats = x
             else:
                 x = pd.read_sql(query + maxusers, postgresconnection)
                 exec( "global " + file + ";" + file + ' = x')
 
-            cmd = file + ".to_csv(\'" + filepath + "\')"
-            exec(cmd)
+            cacheStore[file] = x
+
+    cacheStore.close()
+
+    # for file, query in files.items():
+    #     filepath = 'data/cache/' + file + maxusers + '.csv'
+    #     if os.path.isfile(filepath):
+    #         cmd = "global " + file + ";" + file + " = pd.read_csv(\'" + filepath + "\')"
+    #         exec(cmd)
+    #     else:
+    #         if file == 'userProductStats':
+    #             userProductStats = getUserProductStats(maxusers)
+    #         else:
+    #             x = pd.read_sql(query + maxusers, postgresconnection)
+    #             exec( "global " + file + ";" + file + ' = x')
+    #
+    #         cmd = file + ".to_csv(\'" + filepath + "\')"
+    #         exec(cmd)
+
 
     truthperuser = truth.groupby('user_id')['product_id'].apply(list)
+    # userProductStats['order_containing_product'].apply(literal_eval) # convert the string representation of arrays back to arrays
 
     print('blah')
 
@@ -232,41 +253,123 @@ def calculateAverageProductOrders(row, *args):
     #print(row['orderfrequency'])
     threshold = args[0]
 
-    nbpdorders = sum(int(x >= row['totaluserorders']-threshold) for x in row['order_containing_product'])
-    if threshold > row['totaluserorders']:
-        nbpdorders = float(nbpdorders)/row['totaluserorders']
+    # assume we're splitting by 5
+    if threshold > int(row['totaluserorders'])+5:
+        return row['orderfreqlast'+str(threshold-5)]
+
+    nbpdorders = sum(int(x >= int(row['totaluserorders'])-threshold) for x in row['order_containing_product'])
+    if threshold > int(row['totaluserorders']):
+        nbpdorders = float(nbpdorders)/int(row['totaluserorders'])
     else:
         nbpdorders = float(nbpdorders) / threshold
     return nbpdorders
 
 def getUserProductStats(maxuser):
-    query = "SELECT u.*, prod_train.reordered FROM userproducttable2 u LEFT JOIN prod_train on u.eval_order_id = prod_train.order_id AND u.product_id = prod_train.product_id WHERE user_id < " + maxuser
 
-    d = pd.read_sql(query, postgresconnection)
+    step = 0 #hijack this if problems
 
-    #d = pd.merge(d, prod_train[['product_id', 'user_id','reordered']], on=['user_id', 'product_id'], how='left')
+    for i in range(9,-1,-1):
+        filepath = 'data/cache/userProductStats' + str(maxuser) + '.step' + str(i) + '.csv'
+        if os.path.isfile(filepath):
+            debugWithTimer("loading csv cached step")
+            d = pd.read_csv(filepath)
+            step = i + 1
+            debugWithTimer("converting string back to arrays")
+            d['order_containing_product'] = d['order_containing_product'].apply(
+                literal_eval)  # convert the string representation of arrays back to arrays
+            break
 
-    # IMPUTATION
-    print('IMPUTATION')
-    missingValues(d)
-    # d["order_days_since_prior_product_order"].fillna(0, inplace=True)
-    d["dayfrequency"].fillna(0, inplace=True)
-    d["reordered"].fillna(0, inplace=True)
+    print('Reloading From Step' + str(step))
+
+    if step == 0:
+        query = "SELECT u.*, prod_train.reordered FROM userproducttable2 u LEFT JOIN prod_train on u.eval_order_id = prod_train.order_id AND u.product_id = prod_train.product_id WHERE user_id < " + maxuser
+        d = pd.read_sql(query, postgresconnection)
+        d.to_csv('data/cache/userProductStats' + str(maxuser) + '.step'+ str(step) + ".csv")
+        step = step + 1
+
+    if step == 1:
+        # IMPUTATION
+        debugWithTimer("imputation")
+        missingValues(d)
+        # d["order_days_since_prior_product_order"].fillna(0, inplace=True)
+        d["dayfrequency"].fillna(0, inplace=True)
+        d["reordered"].fillna(0, inplace=True)
+
+        debugWithTimer("saving CSV")
+        d.to_csv('data/cache/userProductStats' + str(maxuser) + '.step'+ str(step) + ".csv")
+        step = step + 1
+
+    if step == 2:
+        debugWithTimer("converting string array to array")
+        d['order_containing_product'] = d['product_order_sequence'].apply(lambda x: list(map(int, x.split(','))))
+
+        debugWithTimer("saving CSV")
+        d.to_csv('data/cache/userProductStats' + str(maxuser) + '.step'+ str(step) + ".csv")
+        step = step + 1
+
+    if step == 3:
+        debugWithTimer("sorting order array")
+        d['order_containing_product'].apply(lambda x: x.sort())
+
+        debugWithTimer("saving CSV")
+        d.to_csv('data/cache/userProductStats' + str(maxuser) + '.step'+ str(step) + ".csv")
+        step = step + 1
+
+    if step == 4:
+        debugWithTimer("orderfreqoverratio")
+        d['orderfreqoverratio'] = d.apply(
+            lambda row: 0 if row['dayfrequency'] == 0 else float(row['days_without_product_order']) / row[
+                'dayfrequency']
+            , axis=1)  # days without product order expressed as as a ratio of the usual order frequency.
+
+        debugWithTimer("saving CSV")
+        d.to_csv('data/cache/userProductStats' + str(maxuser) + '.step'+ str(step) + ".csv")
+        step = step + 1
+
+    if step == 5:
+        debugWithTimer("step 5 ")
+        for i in range(1, 5):
+            debugWithTimer("step i" + str(i))
+            d['orderfreqlast' + str(i * 5)] = d.apply(calculateAverageProductOrders, args=(i * 5,), axis=1)
+
+        debugWithTimer("saving CSV")
+        d.to_csv('data/cache/userProductStats' + str(maxuser) + '.step'+ str(step) + ".csv")
+        step = step + 1
+
+    if step == 6:
+        debugWithTimer("step 6 ")
+        for i in range(5, 10):
+            debugWithTimer("step i" + str(i))
+            d['orderfreqlast' + str(i * 5)] = d.apply(calculateAverageProductOrders, args=(i * 5,), axis=1)
+
+        debugWithTimer("saving CSV")
+        d.to_csv('data/cache/userProductStats' + str(maxuser) + '.step'+ str(step) + ".csv")
+        step = step + 1
+
+    if step == 7:
+        debugWithTimer("step 7 ")
+        for i in range(10, 15):
+            debugWithTimer("step i" + str(i))
+            d['orderfreqlast' + str(i * 5)] = d.apply(calculateAverageProductOrders, args=(i * 5,), axis=1)
+
+        debugWithTimer("saving CSV")
+        d.to_csv('data/cache/userProductStats' + str(maxuser) + '.step'+ str(step) + ".csv")
+        step = step + 1
+
+    if step == 8:
+        debugWithTimer("step 8 ")
+        for i in range(15, 20):
+            debugWithTimer("step i" + str(i))
+            d['orderfreqlast' + str(i * 5)] = d.apply(calculateAverageProductOrders, args=(i * 5,), axis=1)
+
+        debugWithTimer("saving CSV")
+        d.to_csv('data/cache/userProductStats' + str(maxuser) + '.step'+ str(step) + ".csv")
+        step = step + 1
 
     # x = list(map(int,d['product_order_sequence'][0].split(',')))
     # x.sort()
-    d['order_containing_product'] = d['product_order_sequence'].apply(lambda x: list(map(int, x.split(','))))
-    d['order_containing_product'].apply(lambda x: x.sort())
-
-
-    for i in range(1, 20):
-        d['orderfreqlast' + str(i*5)] = d.apply(calculateAverageProductOrders, args=(i*5,), axis=1)
-
-    d['orderfreqoverratio'] = d.apply( lambda row: 0 if row['dayfrequency'] == 0 else float(row['days_without_product_order'])/row['dayfrequency']
-                                            , axis=1) # days without product order expressed as as a ratio of the usual order frequency.
 
     return d
-
 
 def missingValues(df):
     total = df.isnull().sum().sort_values(ascending=False)
