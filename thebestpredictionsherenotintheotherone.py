@@ -431,6 +431,7 @@ def myThirdNN(train, test):
     x_train = None
     y_train = None
 
+
     defCounter = 0
     for oneDefinition in hyperParamExplorationDict : #placeholder for hyperparam exploration
         defCounter = defCounter + 1
