@@ -267,6 +267,7 @@ def calculateAverageProductOrders(row, *args):
 def getUserProductStats(maxuser):
 
     step = 0 #hijack this if problems
+    saveIntermediarySteps = False
 
     for i in range(9,-1,-1):
         filepath = 'data/cache/userProductStats' + str(maxuser) + '.step' + str(i) + '.csv'
@@ -284,7 +285,8 @@ def getUserProductStats(maxuser):
     if step == 0:
         query = "SELECT u.*, prod_train.reordered FROM userproducttable2 u LEFT JOIN prod_train on u.eval_order_id = prod_train.order_id AND u.product_id = prod_train.product_id WHERE user_id < " + maxuser
         d = pd.read_sql(query, postgresconnection)
-        d.to_csv('data/cache/userProductStats' + str(maxuser) + '.step'+ str(step) + ".csv")
+        if saveIntermediarySteps == True:
+            d.to_csv('data/cache/userProductStats' + str(maxuser) + '.step'+ str(step) + ".csv")
         step = step + 1
 
     if step == 1:
@@ -295,24 +297,27 @@ def getUserProductStats(maxuser):
         d["dayfrequency"].fillna(0, inplace=True)
         d["reordered"].fillna(0, inplace=True)
 
-        debugWithTimer("saving CSV")
-        d.to_csv('data/cache/userProductStats' + str(maxuser) + '.step'+ str(step) + ".csv")
+        if saveIntermediarySteps == True:
+            debugWithTimer("saving CSV")
+            d.to_csv('data/cache/userProductStats' + str(maxuser) + '.step'+ str(step) + ".csv")
         step = step + 1
 
     if step == 2:
         debugWithTimer("converting string array to array")
         d['order_containing_product'] = d['product_order_sequence'].apply(lambda x: list(map(int, x.split(','))))
 
-        debugWithTimer("saving CSV")
-        d.to_csv('data/cache/userProductStats' + str(maxuser) + '.step'+ str(step) + ".csv")
+        if saveIntermediarySteps == True:
+            debugWithTimer("saving CSV")
+            d.to_csv('data/cache/userProductStats' + str(maxuser) + '.step'+ str(step) + ".csv")
         step = step + 1
 
     if step == 3:
         debugWithTimer("sorting order array")
         d['order_containing_product'].apply(lambda x: x.sort())
 
-        debugWithTimer("saving CSV")
-        d.to_csv('data/cache/userProductStats' + str(maxuser) + '.step'+ str(step) + ".csv")
+        if saveIntermediarySteps == True:
+            debugWithTimer("saving CSV")
+            d.to_csv('data/cache/userProductStats' + str(maxuser) + '.step'+ str(step) + ".csv")
         step = step + 1
 
     if step == 4:
@@ -322,8 +327,9 @@ def getUserProductStats(maxuser):
                 'dayfrequency']
             , axis=1)  # days without product order expressed as as a ratio of the usual order frequency.
 
-        debugWithTimer("saving CSV")
-        d.to_csv('data/cache/userProductStats' + str(maxuser) + '.step'+ str(step) + ".csv")
+        if saveIntermediarySteps == True:
+            debugWithTimer("saving CSV")
+            d.to_csv('data/cache/userProductStats' + str(maxuser) + '.step'+ str(step) + ".csv")
         step = step + 1
 
     if step == 5:
@@ -332,8 +338,9 @@ def getUserProductStats(maxuser):
             debugWithTimer("step i" + str(i))
             d['orderfreqlast' + str(i * 5)] = d.apply(calculateAverageProductOrders, args=(i * 5,), axis=1)
 
-        debugWithTimer("saving CSV")
-        d.to_csv('data/cache/userProductStats' + str(maxuser) + '.step'+ str(step) + ".csv")
+        if saveIntermediarySteps == True:
+            debugWithTimer("saving CSV")
+            d.to_csv('data/cache/userProductStats' + str(maxuser) + '.step'+ str(step) + ".csv")
         step = step + 1
 
     if step == 6:
@@ -342,8 +349,9 @@ def getUserProductStats(maxuser):
             debugWithTimer("step i" + str(i))
             d['orderfreqlast' + str(i * 5)] = d.apply(calculateAverageProductOrders, args=(i * 5,), axis=1)
 
-        debugWithTimer("saving CSV")
-        d.to_csv('data/cache/userProductStats' + str(maxuser) + '.step'+ str(step) + ".csv")
+        if saveIntermediarySteps == True:
+            debugWithTimer("saving CSV")
+            d.to_csv('data/cache/userProductStats' + str(maxuser) + '.step'+ str(step) + ".csv")
         step = step + 1
 
     if step == 7:
@@ -352,8 +360,9 @@ def getUserProductStats(maxuser):
             debugWithTimer("step i" + str(i))
             d['orderfreqlast' + str(i * 5)] = d.apply(calculateAverageProductOrders, args=(i * 5,), axis=1)
 
-        debugWithTimer("saving CSV")
-        d.to_csv('data/cache/userProductStats' + str(maxuser) + '.step'+ str(step) + ".csv")
+        if saveIntermediarySteps == True:
+            debugWithTimer("saving CSV")
+            d.to_csv('data/cache/userProductStats' + str(maxuser) + '.step'+ str(step) + ".csv")
         step = step + 1
 
     if step == 8:
@@ -362,8 +371,9 @@ def getUserProductStats(maxuser):
             debugWithTimer("step i" + str(i))
             d['orderfreqlast' + str(i * 5)] = d.apply(calculateAverageProductOrders, args=(i * 5,), axis=1)
 
-        debugWithTimer("saving CSV")
-        d.to_csv('data/cache/userProductStats' + str(maxuser) + '.step'+ str(step) + ".csv")
+        if saveIntermediarySteps == True:
+            debugWithTimer("saving CSV")
+            d.to_csv('data/cache/userProductStats' + str(maxuser) + '.step'+ str(step) + ".csv")
         step = step + 1
 
     # x = list(map(int,d['product_order_sequence'][0].split(',')))
@@ -409,13 +419,13 @@ def balancedTrainAndTestForValidation(mostrecent=100):
     test = originalTrain[~originalTrain['user_id'].isin(trainUsers)]
 
     numPositive = len(train[train['reordered'] == 1])
-    negIndices = list(train[train['reordered'] == 0]['Unnamed: 0'])
+    negIndices = list(train[train['reordered'] == 0].index)
     random.shuffle(negIndices)
 
     indicesToKeep = negIndices[:numPositive]
-    indicesToKeep.extend(list(train[train['reordered'] == 1]['Unnamed: 0']))
+    indicesToKeep.extend(list(train[train['reordered'] == 1].index))
 
-    train = train[train['Unnamed: 0'].isin(indicesToKeep)]
+    train = train.ix[indicesToKeep]
 
     test = pd.concat([test, originalTest])
     train = train.drop(['testortrain'], axis=1)

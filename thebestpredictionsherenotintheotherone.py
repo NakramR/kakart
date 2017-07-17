@@ -385,7 +385,7 @@ def myThirdNN(train, test):
     possibleDropoutRates =  [0.9] #[0.75, 0.9, 1.0 ]
     possibleNetworkLayerShapes = [ [20], [20,20], [50,20] ] #, [20,20,20], [100,50, 20] ]
     possibleNetworkLayerShapes = [ [20], [20,20], [30,20], [30,20,10], [30], [10], [30,10] ]
-    possibleLearningRates = [0.1, 0.01, 0.001]
+    possibleLearningRates = [0.3, 0.1, 0.05]
 
     hyperParamExplorationDict = []
     for fdef in possibleFeatures:
@@ -393,7 +393,7 @@ def myThirdNN(train, test):
             for optimizerName in possibleOptimizers:
                 for dr in possibleDropoutRates:
                     for lr in possibleLearningRates:
-                        for vlr in [True,False]:
+                        for vlr in [False]:
                             hyperParamExplorationDict.extend(
                             [
                                 { 'features': fdef
@@ -433,6 +433,7 @@ def myThirdNN(train, test):
 
     defCounter = 0
     for oneDefinition in hyperParamExplorationDict : #placeholder for hyperparam exploration
+        defCounter = defCounter + 1
         print("evaluation definition: (" + str(defCounter) + "/" + str(len(hyperParamExplorationDict)) + ")")
         features = oneDefinition['features']
         hiddenLayerSizes =oneDefinition['hiddenLayerSizes']
