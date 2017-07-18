@@ -227,11 +227,11 @@ def lstm(train, test):
     ALPHASIZE =  len(pcb.products)# number of products
     CELLSIZE = 512
     NLAYERS = 2
-    Xd = tf.placeholder(tf.uint8, [None, None,1 ])#batchsize, seqlen,
+    Xd = tf.placeholder(tf.float32, [None, None,1 ])#batchsize, seqlen,
     #X = tf.one_hot(Xd, ALPHASIZE, 1.0, 0.0)
     X = Xd
 
-    Yd = tf.placeholder(tf.uint8, [None, None,1])
+    Yd = tf.placeholder(tf.float32, [None, None,1])
     #Y_ = tf.one_hot(Yd, ALPHASIZE, 1.0, 0.0)
     Y_ = Yd
 
@@ -242,13 +242,15 @@ def lstm(train, test):
     Hr, H = tf.nn.dynamic_rnn(mcell, X, initial_state=Hin)
 
     Hf = tf.reshape(Hr, [-1, CELLSIZE])
-    Ylogits = layers.linear(Hf, None, None)#batchsize, seqlen,
+    Ylogits = layers.linear(Hf, 1)
     Y = tf.nn.softmax(Ylogits)
     Yp = tf.argmax(Y, 1)
     Yp = tf.reshape(Yp, [batchsize, -1 ])
 
     loss = tf.nn.softmax_cross_entropy_with_logits(logits = Ylogits, labels =Y_)
     train_step = tf.train.AdamOptimizer(1e-3).minimize(loss)
+
+
 
     with tf.Session() as sess:
         curStep = 1
@@ -258,8 +260,23 @@ def lstm(train, test):
 
             batch_x = train[(curStep - 1) * batchsize:(curStep) * batchsize]
             batch_y = train[(curStep - 1) * batchsize:(curStep) * batchsize]
+            print(batch_x.shape)
+            for i, row in batch_x.iterrows():
+                batch_x['order_bitfield'] = batch_x.apply(createOrderBitfield, args=(SEQLEN,), axis=1)
 
-            data = {X: batch_x, Y_: batch_y, Hin : inH}
+
+            data = {X: batch_x['order_bitfield'], Y_: batch_y, Hin : inH}
             _, y, outH= sess.run([train_step,Yp, H, ],feed_dict=data)
             inH = outH
 
+
+def createOrderBitfield(row, *args):
+    SEQLEN = args[0]
+    x = np.zeros(SEQLEN)
+    r = row['order_containing_product']
+    total = row['totaluserorders']
+    total = min(total, SEQLEN)
+
+    x[list((i + SEQLEN - total -1) for i in r[-SEQLEN:])] = 1
+    return list(x)
+    return (x,)
