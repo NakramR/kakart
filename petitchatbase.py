@@ -74,9 +74,11 @@ truthperuser = []
 usersInTest = []
 uniqueproductperusercache = []
 
-train =[]
+train = []
 test = []
-
+trainidx = []
+stestidx = []
+testidx = []
 
 ## Save to postgres
 #aisles.to_sql("aisles", engine)
@@ -112,8 +114,8 @@ test = []
 def initData(maxusers):
     global prod_prior, prod_train, orders, userProductStats, truth, truthperuser, usersInTest, cacheStore
 
-    files = {'prod_prior'       : 'SELECT orders.user_id, prod_prior.* FROM prod_prior LEFT JOIN orders ON orders.order_id = prod_prior.order_id WHERE user_id < '
-            ,'prod_train'       : 'SELECT orders.user_id, prod_train.* FROM prod_train LEFT JOIN orders ON orders.order_id = prod_train.order_id WHERE user_id < '
+    files = { 'prod_prior'       : 'SELECT orders.user_id, prod_prior.* FROM prod_prior LEFT JOIN orders ON orders.order_id = prod_prior.order_id WHERE user_id < '
+            , 'prod_train'       : 'SELECT orders.user_id, prod_train.* FROM prod_train LEFT JOIN orders ON orders.order_id = prod_train.order_id WHERE user_id < '
             , 'orders'          : 'SELECT * FROM orders_e WHERE user_id < '
             , 'truth'           : 'SELECT orders.user_id, prod_train.product_id, TRUE AS ordered FROM prod_train LEFT JOIN orders ON orders.order_id = prod_train.order_id WHERE user_id < '
             , 'usersInTest'     : "SELECT user_id, order_id FROM orders WHERE eval_set = 'test' AND user_id < "
@@ -381,6 +383,12 @@ def getUserProductStats(maxuser):
 
     return d
 
+# TODO: create features: user groups (preferred products)
+# TODO: create features: user groups (purchase frequency)
+# TODO: create features: user groups (order frequency)
+# TODO: create features: product groups (product groups (throughout aisles/departments) by how frequently they are reordered)
+# TODO: create features: seasonal products reordering vs order day/ per product
+
 def missingValues(df):
     total = df.isnull().sum().sort_values(ascending=False)
     percent = (df.isnull().sum() / df.isnull().count()).sort_values(ascending=False)
@@ -400,6 +408,7 @@ def trainAndTestForValidation():
     train = originalTrain[originalTrain['user_id'].isin(trainUsers)]
     test = originalTrain[~originalTrain['user_id'].isin(trainUsers)]
 
+    train = train.sample(frac=1) #shuffle
     test = pd.concat([test, originalTest])
     train = train.drop(['testortrain'], axis=1)
     test = test.drop(['testortrain'], axis=1)
@@ -425,14 +434,65 @@ def balancedTrainAndTestForValidation(mostrecent=100):
     indicesToKeep = negIndices[:numPositive]
     indicesToKeep.extend(list(train[train['reordered'] == 1].index))
 
-    train = train.ix[indicesToKeep]
+    #random.shuffle(indicesToKeep)
+    train2 = train.loc[indicesToKeep]
 
+    # numPositive = len(train[train['reordered'] == 1])
+    # negIndices = list(train[train['reordered'] == 0]['Unnamed: 0'])
+    # #random.shuffle(negIndices)
+    #
+    # indicesToKeep = negIndices[:numPositive]
+    # indicesToKeep.extend(list(train[train['reordered'] == 1]['Unnamed: 0']))
+
+    # train3 = train[train['Unnamed: 0'].isin(indicesToKeep)]
+
+    train = train2.sample(frac=1)
     test = pd.concat([test, originalTest])
     train = train.drop(['testortrain'], axis=1)
     test = test.drop(['testortrain'], axis=1)
     print('train : ', train.shape, ' test ', test.shape)
     return train, test
 
+def balancedTrainAndTestDFIDXForValidation(mostrecent=100):
+
+    tt = userProductStats[['testortrain','reordered','user_id']]
+
+    originalTrain = tt[tt['testortrain'] != 'test']
+    originalTest = tt[tt['testortrain'] == 'test']
+    print('originalTrain : ', originalTrain.shape, ' originalTest ', originalTest.shape)
+
+    uniqueusers = originalTrain['user_id'].unique()
+
+    trainUsers, testUsers = deterministic_train_test_split(uniqueusers, test_size=0.2)
+
+    train = originalTrain[originalTrain['user_id'].isin(trainUsers)]
+    test = originalTrain[~originalTrain['user_id'].isin(trainUsers)]
+
+    #shuffle train
+    train = train.sample(frac=1)
+
+    # maintain equal balance of positive/negative results
+    posIndices = train[train['reordered'] == 1].index
+    numPositive = len(posIndices)
+    negIndices = list(train[train['reordered'] == 0].index)
+    random.shuffle(negIndices)
+
+    indicesToKeep = negIndices[:numPositive]
+    indicesToKeep.extend(list(posIndices))
+
+    trainIndices = indicesToKeep
+    selftestIndices = test.index
+    submissionTestIndices = originalTest.index
+
+    return trainIndices, selftestIndices, submissionTestIndices
+    # train2 = train.loc[indicesToKeep]
+    #
+    # train = train2.sample(frac=1)
+    # test = pd.concat([test, originalTest])
+    # train = train.drop(['testortrain'], axis=1)
+    # test = test.drop(['testortrain'], axis=1)
+    # print('train : ', train.shape, ' test ', test.shape)
+    # return train, test
 
 def trainAndTestForSubmission():
     originalTrain = userProductStats[userProductStats['testortrain'] != 'test']
@@ -441,6 +501,29 @@ def trainAndTestForSubmission():
 
     return originalTrain, originalTest
 
+def isInPriorRun(definition):
+    priorScores = loadPriorRuns()
+    if priorScores is None:
+        return False
+
+    if maxuserid + 'Ç' + str(definition) + "\n" in priorScores:
+        return True
+    else:
+        return False
+
+def loadPriorRuns():
+    priorScores = {}
+    with open('priorRuns.txt', 'r') as f:
+        line = f.readline()
+        while line != '':
+            x = line.split('Å')
+            priorScores[x[1]] = x[0]
+            line = f.readline()
+    return priorScores
+
+def saveRun(definition, score):
+    with open('priorRuns.txt', 'a') as f:
+        f.write("{:.5f}".format(score) + 'Å' + maxuserid + 'Ç' + str(definition) + "\n")
 
 
 ### END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS

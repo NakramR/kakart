@@ -1,6 +1,7 @@
 import petitchatbase as pcb
 import thebestpredictionsherenotintheotherone as bestpredictions
 import predictions as predictions
+import moreNN
 import numpy as np
 import pandas as pd
 import time
@@ -15,6 +16,8 @@ pcb.maxuserid = '100'
 
 if sys.argv[1]:
     pcb.maxuserid = str(sys.argv[1])
+    if pcb.maxuserid == 'all':
+        pcb.maxuserid = '1000000000'
 
 random.seed(42)
 
@@ -24,7 +27,15 @@ pcb.initData(pcb.maxuserid)
 pcb.debugWithTimer("splitting train/test orders")
 
 pcb.train, pcb.test = pcb.trainAndTestForValidation()
+
+# pcb.trainidx, pcb.stestidx, pcb.testidx = pcb.balancedTrainAndTestDFIDXForValidation()
+#
+# pcb.train = pcb.userProductStats.loc[pcb.trainidx]
+# pcb.test = pcb.userProductStats.loc[pcb.stestidx]
+#
 pcb.train, pcb.test = pcb.balancedTrainAndTestForValidation()
+
+
 
 #print(usersInTest)
 
@@ -92,25 +103,32 @@ lastPrediction = []
 # pcb.scorePrediction(p9)
 # lastPrediction = p9
 
-# pcb.debugWithTimer("generating LSTM prediction")
-# p10 = predictions.lstm(pcb.train, pcb.test)
-# pcb.debugWithTimer("scoring p10: ")
-# pcb.scorePrediction(p10)
-# lastPrediction = p10
+pcb.debugWithTimer("generating LSTM prediction")
+p10 = predictions.lstm(pcb.train, pcb.test)
+pcb.debugWithTimer("scoring p10: ")
+pcb.scorePrediction(p10)
+lastPrediction = p10
 
+#
+# pcb.debugWithTimer("generating thirdNN prediction")
+# p11 = bestpredictions.myThirdNN(pcb.train, pcb.test)
+# pcb.debugWithTimer("scoring p11: ")
+# pcb.scorePrediction(p11)
+# lastPrediction = p11
 
-pcb.debugWithTimer("generating thirdNN prediction")
-p11 = bestpredictions.myThirdNN(pcb.train, pcb.test)
-pcb.debugWithTimer("scoring p11: ")
-pcb.scorePrediction(p11)
-lastPrediction = p11
+# pcb.debugWithTimer("generating generateXGBoostPredictionLeChat prediction")
+#
+# p12 = bestpredictions.generateXGBoostPredictionLeChat(pcb.train, pcb.test, depth=5, estimators=80, learning_rate=0.1)
+# pcb.debugWithTimer("***scoring p12:")
+# pcb.scorePrediction(p12)
+# lastPrediction = p12
 
+# pcb.debugWithTimer("generating fourthNN prediction")
+# p13 = moreNN.myFourthNN(pcb.train, pcb.test, False)
+# pcb.debugWithTimer("scoring p13: ")
+# #pcb.scorePrediction(p13)
+# lastPrediction = p13
 
-# for i in range(5, 8): #threshold between 0.25 and 0.4 is where the good stuff is, possibly
-#      pcb.debugWithTimer("generating freq threshold prediction + " + str(i*0.05))
-#      p2 = bestpredictions.predictOverFrequencyThreshold(i*0.05)
-#      pcb.debugWithTimer("scoring p2: "+ str(i*0.05))
-#      pcb.scorePrediction(p2)
 
 
 

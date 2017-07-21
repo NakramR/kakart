@@ -11,6 +11,13 @@ import matplotlib.pyplot as plt
 import sys
 import operator
 import math
+import matplotlib as pyplot
+import xgboost
+from xgboost import XGBClassifier
+from collections import Counter
+from sklearn.calibration import CalibratedClassifierCV
+import matplotlib.pyplot as plt
+
 
 def generateRandomPrediction():
     randpred = pd.DataFrame(columns=('user_id', 'product_id', 'predy'))
@@ -63,16 +70,71 @@ def sLogistic(train, test):
     df['predy'] = y_pred
     return df
 
-def tfvariable_summaries(var):
-    with tf.name_scope('summaries'):
-        mean = tf.reduce_mean(var)
-        tf.summary.scalar('mean', mean)
-        with tf.name_scope('stddev'):
-            stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
-        tf.summary.scalar('stddev', stddev)
-        tf.summary.scalar('max', tf.reduce_max(var))
-        tf.summary.scalar('min', tf.reduce_min(var))
-        tf.summary.histogram('histogram', var)
+def generateXGBoostPredictionLeChat(train, test, depth=4, estimators=80, learning_rate=0.1):
+    print('\n##################\nXGBoost\n##################')
+    features = ['orderfrequency', 'dayfrequency', 'department_id', 'aisle_id', 'days_without_product_order','eval_days_since_prior_order',
+                   'numproductorders', 'totaluserorders','day_number_of_last_product_order', 'eval_order_dow', 'orderfreqoverratio', 'orderfreqlast5', 'orderfreqlast10',
+       'orderfreqlast15', 'orderfreqlast20', 'orderfreqlast25',
+       'orderfreqlast30', 'orderfreqlast35', 'orderfreqlast40',
+       'orderfreqlast45', 'orderfreqlast50', 'orderfreqlast55',
+       'orderfreqlast60', 'orderfreqlast65', 'orderfreqlast70',
+       'orderfreqlast75', 'orderfreqlast80', 'orderfreqlast85',
+       'orderfreqlast90', 'orderfreqlast95']
+
+    param = {}
+    #param['booster'] = 'gbtree'
+    param['objective'] = 'binary:logistic'
+    # param["eval_metric"] = "error"
+    # param['eta'] = 0.3
+    # param['gamma'] = 0
+    param['max_depth'] = depth
+    param['n_estimators'] =estimators
+    param['learning_rate'] = learning_rate
+    # param['min_child_weight'] = 1
+    # param['max_delta_step'] = 0
+    #param['subsample'] = 1
+    # param['colsample_bytree'] = 1
+    # param['silent'] = 1
+    # param['seed'] = 0
+    #param['base_score'] = 0.4
+
+    X_train = train[features]
+    #test = test[features]
+
+    y_train = train['reordered']
+
+    estimator = XGBClassifier()
+    estimator.set_params(**param)
+    metLearn = CalibratedClassifierCV(estimator, method='sigmoid', cv=5)
+    metLearn.fit(X_train, y_train)
+
+#    secLearn = RandomizedSearchCV(estimator, n_jobs = 3, cv=5 )
+
+    # feature importance
+    # estimator.fit(X_train, y_train)
+    # print(estimator.feature_importances_)
+    # plot
+    # pyplot.bar(range(len(estimator.feature_importances_)), estimator.feature_importances_)
+    # pyplot.show()
+
+    testNoID = test[features]
+
+    y_pred = metLearn.predict(testNoID)
+
+    estimator.fit(X_train, y_train)
+    xgboost.plot_importance(estimator, height=0.2)
+    plt.show()
+
+    # estimator.fit(X_train, y_train)
+    # y_pred = estimator.predict(test)
+    print('Predict counter : %s' % (Counter(y_pred)))
+
+
+    df = pd.DataFrame(columns=('user_id', 'product_id', 'predy'))
+    df['user_id'] = test['user_id']
+    df['product_id'] = test['product_id']
+    df['predy'] = y_pred
+    return df
 
 def makeHyperParamString(hiddenLayerSizes, dropoutRate, numFeatures, optimizer, learningrate, lossFunction, extra):
 
@@ -362,13 +424,12 @@ def myThirdNN(train, test):
        'orderfreqlast90', 'orderfreqlast95'
 ]
 
-    features9 = ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id', 'aisle_id','eval_days_since_prior_order', 'numproductorders', 'totaluserorders', 'orderfreqoverratio', 'orderfreqlast5', 'orderfreqlast10',
+    features28 = ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id', 'aisle_id','eval_days_since_prior_order', 'numproductorders', 'totaluserorders', 'orderfreqoverratio', 'orderfreqlast5', 'orderfreqlast10',
        'orderfreqlast15', 'orderfreqlast20', 'orderfreqlast25',
        'orderfreqlast30', 'orderfreqlast35', 'orderfreqlast40',
        'orderfreqlast45', 'orderfreqlast50', 'orderfreqlast55',
-       'orderfreqlast60', 'orderfreqlast65', 'orderfreqlast70',
-       'orderfreqlast75', 'orderfreqlast80', 'orderfreqlast85',
-       'orderfreqlast90', 'orderfreqlast95']
+       'orderfreqlast60' ]
+    features9 = ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id', 'aisle_id','eval_days_since_prior_order', 'numproductorders', 'totaluserorders', 'orderfreqoverratio']
     features4 = ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id']
     features1 = ['orderfrequency']
 
@@ -381,11 +442,11 @@ def myThirdNN(train, test):
     tf.set_random_seed(42)
 
     possibleOptimizers = ['adagrad', 'adam']
-    possibleFeatures = [features9] # [features4, features9] #[features1, features4, features9]
+    possibleFeatures = [features28] # [features4, features9] #[features1, features4, features9]
     possibleDropoutRates =  [0.9] #[0.75, 0.9, 1.0 ]
     possibleNetworkLayerShapes = [ [20], [20,20], [50,20] ] #, [20,20,20], [100,50, 20] ]
-    possibleNetworkLayerShapes = [ [20], [20,20], [30,20], [30,20,10], [30], [10], [30,10] ]
-    possibleLearningRates = [0.3, 0.1, 0.05]
+    possibleNetworkLayerShapes = [ [20], [20,20], [30,20], [30,20,10], [30], [10], [15] ]
+    possibleLearningRates = [0.1, 0.01]
 
     hyperParamExplorationDict = []
     for fdef in possibleFeatures:
@@ -393,7 +454,7 @@ def myThirdNN(train, test):
             for optimizerName in possibleOptimizers:
                 for dr in possibleDropoutRates:
                     for lr in possibleLearningRates:
-                        for vlr in [False]:
+                        for vlr in [True]:
                             hyperParamExplorationDict.extend(
                             [
                                 { 'features': fdef
@@ -421,6 +482,8 @@ def myThirdNN(train, test):
     #                        'orderfreqlast70', 'orderfreqlast75', 'orderfreqlast80', 'orderfreqlast85',
     #                        'orderfreqlast90', 'orderfreqlast95'], 'hiddenLayerSizes': [10], 'dropoutRate': 0.9,
     #           'optimizerName': 'adam', 'lr': 0.1, 'lf': 'sigmoidxent', 'extra': '-balancedinput'}
+
+    # hyperParamExplorationDict = [{'method': 'fourthNN-balancedInput', 'features': ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'eval_days_since_prior_order', 'numproductorders', 'totaluserorders', 'orderfreqoverratio', 'orderfreqlast5', 'orderfreqlast10', 'orderfreqlast15', 'orderfreqlast20', 'orderfreqlast25', 'orderfreqlast30', 'orderfreqlast35', 'orderfreqlast40', 'orderfreqlast45', 'orderfreqlast50', 'orderfreqlast55', 'orderfreqlast60'], 'hiddenLayerSizes': [30, 10], 'dropoutRate': 0.8, 'optimizerName': 'adam', 'lr': 0.01, 'lf': 'sigmoidxent', 'vlr': False, 'extra': '', 'adsize': 30}]
 
     bestScore = 0
     bestDefinition = {}
@@ -575,8 +638,8 @@ def myThirdNN(train, test):
                 learning_rate = 1
                 if variableLearningRate == True:
                     max_learning_rate = initiallr #0.001
-                    min_learning_rate = 0.001
-                    decay_speed = 2000.0  # 0.003-0.0001-2000=>0.9826 done in 5000 iterations
+                    min_learning_rate = initiallr/100
+                    decay_speed = 1000.0  # 0.003-0.0001-2000=>0.9826 done in 5000 iterations
                     learning_rate = min_learning_rate + (max_learning_rate - min_learning_rate) * math.exp(-(curStep*batchSize) / decay_speed)
                 else:
                     learning_rate = initiallr
@@ -622,15 +685,15 @@ def myThirdNN(train, test):
 
         # save score to file:
         f = open('NNscores.txt', 'a')
-        f.write(str(f1score) + ':' + hyperParamStr + ':' + str(oneDefinition) + "\n")
+        f.write("{:.5f}".format(f1score) + ':' + hyperParamStr + ':' + str(oneDefinition) + "\n")
         f.close()
 
     f = open('NNscores.txt', 'a')
     f.write( '\n********\n********\n********')
-    f.write( '\nbest score:' + str(round(bestScore,5)) + ' with ' + str(bestDefinition) )
+    f.write( '\nbest score:' + "{:.5f}".format(bestScore) + ' with ' + str(bestDefinition) )
     f.write( '\n********\n********\n********')
     print( '********\n********\n********')
-    print('best score:' + str(round(bestScore,5)) + ' with ' + str(bestDefinition) )
+    print('best score:' + "{:.5f}".format(bestScore) + ' with ' + str(bestDefinition) )
     print( '********\n********\n********')
 
     sortedScores = sorted(allScores.items(), key=operator.itemgetter(1))

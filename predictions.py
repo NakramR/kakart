@@ -224,31 +224,61 @@ def predictFirstTime(train, test):
 def lstm(train, test):
     batchsize = 50
     SEQLEN = 30
-    ALPHASIZE =  len(pcb.products)# number of products
+    ALPHASIZE =  1 # len(pcb.products)# number of products
     CELLSIZE = 512
     NLAYERS = 2
-    Xd = tf.placeholder(tf.uint8, [None, None,1 ])#batchsize, seqlen,
-    #X = tf.one_hot(Xd, ALPHASIZE, 1.0, 0.0)
-    X = Xd
 
-    Yd = tf.placeholder(tf.uint8, [None, None,1])
-    #Y_ = tf.one_hot(Yd, ALPHASIZE, 1.0, 0.0)
-    Y_ = Yd
+    pkeep = tf.placeholder(tf.float32)
+    lr = tf.placeholder(tf.float32)
 
-    Hin = tf.placeholder(tf.float32, [None, CELLSIZE * NLAYERS])
+    X = tf.placeholder(tf.float32, [None, None, 1], name='X')  # [ BATCHSIZE, SEQLEN ]
+    # expected outputs = same sequence shifted by 1 since we are trying to predict the next character
+    Y_ = tf.placeholder(tf.float32, [None, None, 1], name='Y_')  # [ BATCHSIZE, SEQLEN ]
+    # input state
+    Hin = tf.placeholder(tf.float32, [None, CELLSIZE * NLAYERS], name='Hin')  # [ BATCHSIZE, INTERNALSIZE * NLAYERS]
 
-    cell = tf.contrib.rnn.GRUCell(CELLSIZE)
-    mcell = tf.contrib.rnn.MultiRNNCell([cell] * NLAYERS, state_is_tuple = False)
-    Hr, H = tf.nn.dynamic_rnn(mcell, X, initial_state=Hin)
+    # using a NLAYERS=3 layers of GRU cells, unrolled SEQLEN=30 times
+    # dynamic_rnn infers SEQLEN from the size of the inputs Xo
 
-    Hf = tf.reshape(Hr, [-1, CELLSIZE])
-    Ylogits = layers.linear(Hf, None, None)#batchsize, seqlen,
-    Y = tf.nn.softmax(Ylogits)
-    Yp = tf.argmax(Y, 1)
-    Yp = tf.reshape(Yp, [batchsize, -1 ])
+    # How to properly apply dropout in RNNs: see README.md
+    cells = [tf.contrib.rnn.GRUCell(CELLSIZE) for _ in range(NLAYERS)]
+    # "naive dropout" implementation
+    dropcells = [tf.contrib.rnn.DropoutWrapper(cell, input_keep_prob=pkeep) for cell in cells]
+    multicell = tf.contrib.rnn.MultiRNNCell(dropcells, state_is_tuple=False)
+    multicell = tf.contrib.rnn.DropoutWrapper(multicell, output_keep_prob=pkeep)  # dropout for the softmax layer
 
-    loss = tf.nn.softmax_cross_entropy_with_logits(logits = Ylogits, labels =Y_)
-    train_step = tf.train.AdamOptimizer(1e-3).minimize(loss)
+    Yr, H = tf.nn.dynamic_rnn(multicell, X, dtype=tf.float32, initial_state=Hin)
+    # Yr: [ BATCHSIZE, SEQLEN, INTERNALSIZE ]
+    H = tf.identity(H, name='H')  # just to give it a name
+
+    # Softmax layer implementation:
+    # Flatten the first two dimension of the output [ BATCHSIZE, SEQLEN, ALPHASIZE ] => [ BATCHSIZE x SEQLEN, ALPHASIZE ]
+    # then apply softmax readout layer. This way, the weights and biases are shared across unrolled time steps.
+    # From the readout point of view, a value coming from a sequence time step or a minibatch item is the same thing.
+
+    Yflat = tf.reshape(Yr, [-1, CELLSIZE])  # [ BATCHSIZE x SEQLEN, INTERNALSIZE ]
+    Ylogits = layers.linear(Yflat, ALPHASIZE)  # [ BATCHSIZE x SEQLEN, ALPHASIZE ]
+    Yflat_ = tf.reshape(Y_, [-1, ALPHASIZE])  # [ BATCHSIZE x SEQLEN, ALPHASIZE ]
+    loss = tf.nn.softmax_cross_entropy_with_logits(logits=Ylogits, labels=Yflat_)  # [ BATCHSIZE x SEQLEN ]
+    loss = tf.reshape(loss, [batchsize, -1])  # [ BATCHSIZE, SEQLEN ]
+
+    Yo = tf.nn.sigmoid(Ylogits, name='Yo')  # [ BATCHSIZE x SEQLEN, ALPHASIZE ]
+    Y = Yo  # [ BATCHSIZE x SEQLEN ]
+
+    Y = tf.reshape(Y, [batchsize, -1], name="Y")  # [ BATCHSIZE, SEQLEN ]
+    train_step = tf.train.AdamOptimizer(lr).minimize(loss)
+
+    # stats for display
+    seqloss = tf.reduce_mean(loss, 1)
+    batchloss = tf.reduce_mean(seqloss)
+    #accuracy = tf.reduce_mean(tf.cast(tf.equal(Y_, Y), tf.float32))
+
+    accuracy = tf.reduce_mean(tf.abs(tf.add(Y, -Y_)), name="correct")
+
+    loss_summary = tf.summary.scalar("batch_loss", batchloss)
+    acc_summary = tf.summary.scalar("batch_accuracy", accuracy)
+    summaries = tf.summary.merge([loss_summary, acc_summary])
+
 
     with tf.Session() as sess:
         curStep = 1
@@ -259,7 +289,7 @@ def lstm(train, test):
             batch_x = train[(curStep - 1) * batchsize:(curStep) * batchsize]
             batch_y = train[(curStep - 1) * batchsize:(curStep) * batchsize]
 
-            data = {X: batch_x, Y_: batch_y, Hin : inH}
-            _, y, outH= sess.run([train_step,Yp, H, ],feed_dict=data)
+            data = {X: batch_x, Y_: batch_y, Hin : inH, lr: 0.001, pkeep:1.0}
+            _, y, outH= sess.run([train_step,Y, H, ],feed_dict=data)
             inH = outH
 
