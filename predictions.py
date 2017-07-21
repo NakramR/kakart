@@ -288,8 +288,22 @@ def lstm(train, test):
 
             batch_x = train[(curStep - 1) * batchsize:(curStep) * batchsize]
             batch_y = train[(curStep - 1) * batchsize:(curStep) * batchsize]
+            print(batch_x.shape)
+            for i, row in batch_x.iterrows():
+                batch_x['order_bitfield'] = batch_x.apply(createOrderBitfield, args=(SEQLEN,), axis=1)
 
             data = {X: batch_x, Y_: batch_y, Hin : inH, lr: 0.001, pkeep:1.0}
             _, y, outH= sess.run([train_step,Y, H, ],feed_dict=data)
             inH = outH
 
+
+def createOrderBitfield(row, *args):
+    SEQLEN = args[0]
+    x = np.zeros(SEQLEN)
+    r = row['order_containing_product']
+    total = row['totaluserorders']
+    total = min(total, SEQLEN)
+
+    x[list((i + SEQLEN - total -1) for i in r[-SEQLEN:])] = 1
+    return list(x)
+    return (x,)
