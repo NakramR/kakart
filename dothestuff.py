@@ -8,6 +8,7 @@ import time
 import random
 import sys
 
+pcb.debugWithTimer("donewithImport")
 #pcb.maxuserid = '10'
 pcb.maxuserid = '100'
 #pcb.maxuserid = '10000'

@@ -279,31 +279,94 @@ def lstm(train, test):
     acc_summary = tf.summary.scalar("batch_accuracy", accuracy)
     summaries = tf.summary.merge([loss_summary, acc_summary])
 
+    columnNames = ["D-" + str(i) for i in range(SEQLEN)]
+
+    batch_x = pd.DataFrame(columns=columnNames)
+    batch_y = pd.DataFrame(columns=columnNames)
 
     with tf.Session() as sess:
         curStep = 1
+        tf.global_variables_initializer().run()
 
         for curStep in range(1, int(len(train) / batchsize) + 1):
             inH = np.zeros([batchsize, CELLSIZE * NLAYERS])
 
-            batch_x = train[(curStep - 1) * batchsize:(curStep) * batchsize]
-            batch_y = train[(curStep - 1) * batchsize:(curStep) * batchsize]
-            print(batch_x.shape)
-            for i, row in batch_x.iterrows():
-                batch_x['order_bitfield'] = batch_x.apply(createOrderBitfield, args=(SEQLEN,), axis=1)
+            batch = train[(curStep - 1) * batchsize:(curStep) * batchsize]
+
+            (batch_x, batch_y) = createBatchArray(batch, SEQLEN)
+
+            # for i, row in batch.iterrows():
+            #
+            #     x = createOrderBitfield(row, SEQLEN, 'x')
+            #     y = createOrderBitfield(row, SEQLEN, 'y')
+            #     batch_x.loc[len(batch_x)-1] = list(x)
+            #     batch_y.loc[len(batch_y)-1] = list(y)
+
+                # zeze = batch_x.apply(createOrderBitfield, args=(SEQLEN,'x'), axis=1)
+                # rere = batch_x.apply(createOrderBitfield, args=(SEQLEN,'y'), axis=1)
+
 
             data = {X: batch_x, Y_: batch_y, Hin : inH, lr: 0.001, pkeep:1.0}
             _, y, outH= sess.run([train_step,Y, H, ],feed_dict=data)
             inH = outH
 
+            if (curStep % 10 == 0):
+                acc, batcherr, seqerr = sess.run([accuracy, batchloss, seqloss], feed_dict=data)
+                print('Accuracy: %s, batchloss : %s seqless:%s ' % (str(acc), str(batcherr), str(seqerr)))
+
+        acc, batcherr, seqerr = sess.run([accuracy, batchloss, seqloss], feed_dict=data)
+        print('Accuracy: %s, batchloss : %s seqless:%s ' % (str(acc), str(batcherr), str(seqerr)))
+
+        test_batch, _ = createBatchArray(test, SEQLEN)
+
+        inH = np.zeros([batchsize, CELLSIZE * NLAYERS])
+        data = {X: batch_x, Hin : inH}
+        o = Y.eval(feed_dict=data)
+
+    df = pd.DataFrame(columns=('user_id', 'product_id', 'predy'))
+    df['user_id'] = test['user_id']
+    df['product_id'] = test['product_id']
+    df['predy'] = o
+
+    _, f1score = pcb.scorePrediction(df)
+
+
 
 def createOrderBitfield(row, *args):
     SEQLEN = args[0]
-    x = np.zeros(SEQLEN)
+    x = np.zeros([SEQLEN,1])
     r = row['order_containing_product']
     total = row['totaluserorders']
     total = min(total, SEQLEN)
 
-    x[list((i + SEQLEN - total -1) for i in r[-SEQLEN:])] = 1
-    return list(x)
-    return (x,)
+    if ( args[1] == 'y'): #looking for the output, shift everything by one, and add 'reordered'
+        x[list((i + SEQLEN - total - 2) for i in r[-(SEQLEN-1):]), 0] = 1
+        x[SEQLEN-1,0] = row['reordered']
+    else:
+        x[list((i + SEQLEN - total - 1) for i in r[-SEQLEN:]), 0] = 1
+
+    return x
+
+def createBatchArray(batch, SEQLEN):
+    x = np.zeros((len(batch),SEQLEN,1))
+    y = np.zeros((len(batch),SEQLEN,1))
+
+    count = 0
+    for i, row in batch.iterrows():
+        r = row['order_containing_product']
+        total = row['totaluserorders']
+        total = max(total, SEQLEN)
+
+        for ii in r:
+            indexFromEnd = total-ii
+            if indexFromEnd < 0:
+                continue
+            x[count,indexFromEnd,0] = 1
+            if indexFromEnd > 0:
+                y[count,indexFromEnd-1,0] = 1
+        y[count,SEQLEN-1,0] = row['reordered']
+        count = count+1
+
+    return (x,y)
+
+    return x

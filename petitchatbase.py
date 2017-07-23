@@ -161,7 +161,6 @@ def initData(maxusers):
 
     print('blah')
 
-
 def eval_fun(labels, preds):
     rr = (np.intersect1d(labels, preds))
     precision = np.float(len(rr)) / len(preds)
@@ -171,7 +170,6 @@ def eval_fun(labels, preds):
     except ZeroDivisionError:
         return (precision, recall, 0.0)
     return (precision, recall, f1)
-
 
 def scorePrediction(predictionperitem):
     global truthperuser, train, uniqueproductperusercache
@@ -228,7 +226,6 @@ def scorePrediction(predictionperitem):
         print("No user, no predictions. Pbbbbbt")
 
     return sumf1, sumf1x
-
 
 def addPercentages(user_id):
     global orders, allproductorders, userproducts
@@ -394,7 +391,6 @@ def missingValues(df):
     percent = (df.isnull().sum() / df.isnull().count()).sort_values(ascending=False)
     missing_data = pd.concat([total, percent], axis=1, keys=['Total Missing', 'Percent'])
     print(missing_data)
-
 
 def trainAndTestForValidation():
     originalTrain = userProductStats[userProductStats['testortrain'] != 'test']
