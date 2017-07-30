@@ -118,12 +118,12 @@ lastPrediction = []
 # pcb.scorePrediction(p11)
 # lastPrediction = p11
 
-pcb.debugWithTimer("generating generateXGBoostPredictionLeChat prediction")
-
-p12 = bestpredictions.generateXGBoostPredictionLeChat(pcb.train, pcb.holdout, pcb.test, depth=5, estimators=80, learning_rate=0.1)
-pcb.debugWithTimer("***scoring p12:")
-pcb.scorePrediction(p12)
-lastPrediction = p12
+# pcb.debugWithTimer("generating generateXGBoostPredictionLeChat prediction")
+#
+# p12 = bestpredictions.generateXGBoostPredictionLeChat(pcb.train, pcb.holdout, pcb.test, depth=5, estimators=80, learning_rate=0.1)
+# pcb.debugWithTimer("***scoring p12:")
+# pcb.scorePrediction(p12)
+# lastPrediction = p12
 
 pcb.debugWithTimer("generating fourthNN prediction")
 p13ho, p13 = moreNN.myFourthNN(pcb.train, pcb.holdout, pcb.test, True)
