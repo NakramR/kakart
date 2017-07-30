@@ -35,7 +35,7 @@ pcb.train, pcb.test = pcb.trainAndTestForValidation()
 # pcb.train = pcb.userProductStats.loc[pcb.trainidx]
 # pcb.test = pcb.userProductStats.loc[pcb.stestidx]
 #
-pcb.train, pcb.test = pcb.balancedTrainAndTestForValidation()
+pcb.train, pcb.holdout, pcb.test = pcb.balancedTrainAndTestForValidation()
 
 
 
@@ -120,13 +120,13 @@ lastPrediction = []
 
 pcb.debugWithTimer("generating generateXGBoostPredictionLeChat prediction")
 
-p12 = bestpredictions.generateXGBoostPredictionLeChat(pcb.train, pcb.test, depth=5, estimators=80, learning_rate=0.1)
+p12 = bestpredictions.generateXGBoostPredictionLeChat(pcb.train, pcb.holdout, pcb.test, depth=5, estimators=80, learning_rate=0.1)
 pcb.debugWithTimer("***scoring p12:")
 pcb.scorePrediction(p12)
 lastPrediction = p12
 
 pcb.debugWithTimer("generating fourthNN prediction")
-p13 = moreNN.myFourthNN(pcb.train, pcb.test, True)
+p13ho, p13 = moreNN.myFourthNN(pcb.train, pcb.holdout, pcb.test, True)
 pcb.debugWithTimer("scoring p13: ")
 #pcb.scorePrediction(p13)
 lastPrediction = p13

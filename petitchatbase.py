@@ -19,50 +19,10 @@ pd.set_option('display.float_format', lambda x: '%.3f' % x)
 
 debug = True
 
-def debugWithTimer(message):
-    global lasttime, debug
-    if debug == True:
-        print( '[ %s seconds ] ' % round(time.perf_counter() - lasttime,3) )
-        print(message + "... ", end='', flush=True )
-        lasttime = time.perf_counter()
-
-def are_we_running_in_debug_mode():
-    gettrace = getattr(sys, 'gettrace', None)
-    if gettrace is None:
-        print("can't find anything")
-        return False # don't know, really
-    elif gettrace():
-        print("we're running in debug mode")
-        return True
-    else:
-        print("we're not running in debug mode")
-        return False
-
-# because sklearn's has its own random seed.
-def deterministic_train_test_split(list, test_size):
-    random.shuffle(list)
-    cutoff = int(len(list)*test_size)
-    test = list[:cutoff]
-    train = list[cutoff:]
-
-    return train, test
-
-
-maxuserid = '10'
+maxuserid = '10' # will be overriden
 
 start = time.perf_counter()
 lasttime = start
-
-
-debugWithTimer("setting up postgres connection... ")
-postgresconnection = create_engine('postgresql://stephan:saipass@192.168.1.5:5432/kakart')
-
-debugWithTimer("reading CSVs")
-
-aisles = pd.read_csv('data\\aisles.csv')
-departments = pd.read_csv('data\\departments.csv')
-
-debugWithTimer("done reading CSVs")
 
 products = [] # pd.read_csv('data\\products.csv')
 prod_prior = [] #pd.read_csv('data\\order_products__prior.csv')
@@ -76,17 +36,12 @@ uniqueproductperusercache = []
 
 train = []
 test = []
+holdout = []
 trainidx = []
 stestidx = []
 testidx = []
 
-## Save to postgres
-#aisles.to_sql("aisles", engine)
-#products.to_sql("products", postgresconnection)
-#departments.to_sql("departments", postgresconnection)
-#prod_prior.to_sql("prod_prior", postgresconnection, chunksize=1024, if_exists='append')
-#prod_train.to_sql("prod_train", postgresconnection, chunksize=1024)
-#orders.to_sql("orders", postgresconnection, chunksize=1024)
+
 
 
 # ideas:
@@ -109,6 +64,35 @@ testidx = []
 ### functions here functions here functions here functions here functions here functions here functions here
 
 # for a given user_id, compute which of the products in the orders had previously been ordered, and which had been immediately been preorder
+
+
+def debugWithTimer(message):
+    global lasttime, debug
+    if debug == True:
+        print( '[ %s seconds ] ' % round(time.perf_counter() - lasttime,3) )
+        print(message + "... ", end='', flush=True )
+        lasttime = time.perf_counter()
+
+def are_we_running_in_debug_mode():
+    gettrace = getattr(sys, 'gettrace', None)
+    if gettrace is None:
+        print("can't find anything")
+        return False # don't know, really
+    elif gettrace():
+        print("we're running in debug mode")
+        return True
+    else:
+        print("we're not running in debug mode")
+        return False
+
+# because sklearn's has its own random seed.
+def deterministic_train_holdout_split(list, test_size):
+    random.shuffle(list)
+    cutoff = int(len(list)*test_size)
+    holdout = list[:cutoff]
+    train = list[cutoff:]
+
+    return train, holdout
 
 
 def initData(maxusers):
@@ -414,7 +398,7 @@ def trainAndTestForValidation():
 
     uniqueusers = originalTrain['user_id'].unique()
 
-    trainUsers, testUsers = deterministic_train_test_split(uniqueusers, test_size=0.2)
+    trainUsers, testUsers = deterministic_train_holdout_split(uniqueusers, test_size=0.2)
 
     train = originalTrain[originalTrain['user_id'].isin(trainUsers)]
     test = originalTrain[~originalTrain['user_id'].isin(trainUsers)]
@@ -427,17 +411,23 @@ def trainAndTestForValidation():
     return train, test
 
 def balancedTrainAndTestForValidation(mostrecent=100):
-    originalTrain = userProductStats[userProductStats['testortrain'] != 'test']
-    originalTest = userProductStats[userProductStats['testortrain'] == 'test']
-    print('originalTrain : ', originalTrain.shape, ' originalTest ', originalTest.shape)
 
-    uniqueusers = originalTrain['user_id'].unique()
+    ups = userProductStats.merge(products[['numorders', 'numreorders', 'numusers', 'reordersperuser', 'ordertoreorderfreq', 'product_id',
+                     'aisle_id', 'department_id']], on='product_id', suffixes=('', '_'))
 
-    trainUsers, testUsers = deterministic_train_test_split(uniqueusers, test_size=0.2)
+    originalTrain = ups[ups['testortrain'] != 'test']
+    test = ups[ups['testortrain'] == 'test']
+
+    print('originalTrain : ', originalTrain.shape, ' originalTest ', test.shape)
+
+    # split users in holdout and train
+    uniqueTrainUsers = originalTrain['user_id'].unique()
+    trainUsers, holdoutUsers = deterministic_train_holdout_split(uniqueTrainUsers, test_size=0.2)
 
     train = originalTrain[originalTrain['user_id'].isin(trainUsers)]
-    test = originalTrain[~originalTrain['user_id'].isin(trainUsers)]
+    holdout = originalTrain[originalTrain['user_id'].isin(holdoutUsers)]
 
+    # get the same number of negative samples as positive samples
     numPositive = len(train[train['reordered'] == 1])
     negIndices = list(train[train['reordered'] == 0].index)
     random.shuffle(negIndices)
@@ -445,31 +435,17 @@ def balancedTrainAndTestForValidation(mostrecent=100):
     indicesToKeep = negIndices[:numPositive]
     indicesToKeep.extend(list(train[train['reordered'] == 1].index))
 
-    #random.shuffle(indicesToKeep)
-    train2 = train.loc[indicesToKeep]
+    balancedTrain = train.loc[indicesToKeep]
 
-    # numPositive = len(train[train['reordered'] == 1])
-    # negIndices = list(train[train['reordered'] == 0]['Unnamed: 0'])
-    # #random.shuffle(negIndices)
-    #
-    # indicesToKeep = negIndices[:numPositive]
-    # indicesToKeep.extend(list(train[train['reordered'] == 1]['Unnamed: 0']))
+    # shuffle them to avoid all 0s followed by all 1s
+    train = balancedTrain.sample(frac=1)
 
-    # train3 = train[train['Unnamed: 0'].isin(indicesToKeep)]
-
-    train = train2.sample(frac=1)
-    test = pd.concat([test, originalTest])
     train = train.drop(['testortrain'], axis=1)
+    holdout = holdout.drop(['testortrain'], axis=1)
     test = test.drop(['testortrain'], axis=1)
-    train = train.merge(products[['numorders', 'numreorders', 'numusers', 'reordersperuser',
-                             'ordertoreorderfreq', 'product_id', 'aisle_id',
-                             'department_id']], on='product_id', suffixes = ( '', '_') )
-    test = test.merge(products[['numorders', 'numreorders', 'numusers', 'reordersperuser',
-                             'ordertoreorderfreq', 'product_id', 'aisle_id',
-                             'department_id']], on='product_id', suffixes = ( '', '_') )
 
-    print('train : ', train.shape, ' test ', test.shape)
-    return train, test
+    print('train : ', train.shape, ' test ', test.shape, ' holdout ', holdout.shape)
+    return train, holdout, test
 
 def balancedTrainAndTestDFIDXForValidation(mostrecent=100):
 
@@ -481,10 +457,10 @@ def balancedTrainAndTestDFIDXForValidation(mostrecent=100):
 
     uniqueusers = originalTrain['user_id'].unique()
 
-    trainUsers, testUsers = deterministic_train_test_split(uniqueusers, test_size=0.2)
+    trainUsers, testUsers = deterministic_train_holdout_split(uniqueusers, test_size=0.2)
 
     train = originalTrain[originalTrain['user_id'].isin(trainUsers)]
-    test = originalTrain[~originalTrain['user_id'].isin(trainUsers)]
+    holdout = originalTrain[~originalTrain['user_id'].isin(trainUsers)]
 
     #shuffle train
     train = train.sample(frac=1)
@@ -499,10 +475,10 @@ def balancedTrainAndTestDFIDXForValidation(mostrecent=100):
     indicesToKeep.extend(list(posIndices))
 
     trainIndices = indicesToKeep
-    selftestIndices = test.index
-    submissionTestIndices = originalTest.index
+    holdoutIndices = holdout.index
+    testIndices = originalTest.index
 
-    return trainIndices, selftestIndices, submissionTestIndices
+    return trainIndices, holdoutIndices, testIndices
     # train2 = train.loc[indicesToKeep]
     #
     # train = train2.sample(frac=1)
@@ -558,7 +534,17 @@ def saveRun(definition, score):
 ### END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS END OF FUNCTIONS
 
 
-## split the orders in each subcategory prior/train/test
+debugWithTimer("setting up postgres connection... ")
+postgresconnection = create_engine('postgresql://stephan:saipass@192.168.1.5:5432/kakart')
+
+debugWithTimer("reading CSVs")
+
+aisles = pd.read_csv('data\\aisles.csv')
+departments = pd.read_csv('data\\departments.csv')
+
+debugWithTimer("done reading CSVs")
+
+
 
 
 

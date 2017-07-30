@@ -71,7 +71,7 @@ def batchnorm(Ylogits, Offset, Scale, is_test, iteration):
     return Ybn, update_moving_everages
 
 
-def myFourthNN(train, test, usePriorResultFile=True):
+def myFourthNN(train, holdout, test, usePriorResultFile=True):
     global neuronDropoutRate
     # define hyperparameters
 
@@ -161,6 +161,7 @@ def myFourthNN(train, test, usePriorResultFile=True):
     bestScore = 0
     bestDefinition = {}
     bestDF = None
+    bestDFHoldout = None
     allScores = {}
 
     lastfeatures = None
@@ -333,22 +334,33 @@ def myFourthNN(train, test, usePriorResultFile=True):
                 if (curStep % 100 == 0):
                     print('Accuracy on self: %s loss:%s ' % (str(acc), str(loss)))
 
-            x_test = test[features]
-            x_tdep = test['department_id']
-            x_taisle = test['aisle_id']
+            # get the value for scoring
+            x_test = holdout[features]
+            x_tdep = holdout['department_id']
+            x_taisle = holdout['aisle_id']
 
             feed_dict = {inputPlaceholder: x_test, neuronDropoutRate: 1.0,
                          istest: True, aislePlaceholder: x_taisle,departmentPlaceholder: x_tdep}
-            o = prediction.eval(feed_dict=feed_dict)
+            predHoldout = prediction.eval(feed_dict=feed_dict)
+
+            if ( len(test) > 0 ):
+                x_test = test[features]
+                x_tdep = test['department_id']
+                x_taisle = test['aisle_id']
+                feed_dict = {inputPlaceholder: x_test, neuronDropoutRate: 1.0,
+                             istest: True, aislePlaceholder: x_taisle, departmentPlaceholder: x_tdep}
+                predTest = prediction.eval(feed_dict=feed_dict)
+
 
         # cast the predictions as integers
-        xx = list(round(i[0]) for i in o)
-        xx = list(int(i[0] > threshold) for i in o)
+        xx = list(round(i[0]) for i in predHoldout)
+        xx = list(int(i[0] > threshold) for i in predHoldout)
 
         df = pd.DataFrame(columns=('user_id', 'product_id', 'predy'))
-        df['user_id'] = test['user_id']
-        df['product_id'] = test['product_id']
+        df['user_id'] = holdout['user_id']
+        df['product_id'] = holdout['product_id']
         df['predy'] = xx
+        df['floaty'] = predHoldout
 
         pcb.debugWithTimer("scoring prediction" + hyperParamStr)
         _, f1score = pcb.scorePrediction(df)
@@ -356,7 +368,15 @@ def myFourthNN(train, test, usePriorResultFile=True):
         if  f1score > bestScore:
             bestDefinition = oneDefinition
             bestScore = f1score
-            bestDF = df
+            bestDFHoldout = df
+
+            xx = list(int(i[0] > threshold) for i in predTest)
+            bestDFTest = pd.DataFrame(columns=('user_id', 'product_id', 'predy'))
+            bestDFTest['user_id'] = test['user_id']
+            bestDFTest['product_id'] = test['product_id']
+            bestDFTest['predy'] = xx
+            bestDFTest['floaty'] = predTest
+
         allScores[str(oneDefinition)] = f1score
 
         if usePriorResultFile:
@@ -381,5 +401,5 @@ def myFourthNN(train, test, usePriorResultFile=True):
         f.write("\n{:.5f}".format(score) + ':' +definition)
     f.close()
 
-    bestDF.to_csv('data/results/nn10000.csv')
-    return bestDF
+    bestDFHoldout.to_csv('data/results/nn' + pcb.maxuserid + '.csv')
+    return bestDFHoldout, bestDFTest

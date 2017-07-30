@@ -70,7 +70,7 @@ def sLogistic(train, test):
     df['predy'] = y_pred
     return df
 
-def generateXGBoostPredictionLeChat(train, test, depth=4, estimators=80, learning_rate=0.1):
+def generateXGBoostPredictionLeChat(train, holdout, test, depth=4, estimators=80, learning_rate=0.1):
     print('\n##################\nXGBoost\n##################')
     features = ['orderfrequency', 'dayfrequency', 'department_id', 'aisle_id', 'days_without_product_order','eval_days_since_prior_order',
                    'numproductorders', 'totaluserorders','day_number_of_last_product_order', 'eval_order_dow', 'orderfreqoverratio', 'orderfreqlast5', 'orderfreqlast10',
@@ -123,7 +123,7 @@ def generateXGBoostPredictionLeChat(train, test, depth=4, estimators=80, learnin
     df['product_id'] = test['product_id']
     df['predy'] = y_pred
 
-    df.to_csv('data/results/xgboost10000.csv')
+    df.to_csv('data/results/xgboost' + pcb.maxuserid + '.csv')
     return df
 
 def makeHyperParamString(hiddenLayerSizes, dropoutRate, numFeatures, optimizer, learningrate, lossFunction, extra):
