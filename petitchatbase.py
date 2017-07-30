@@ -60,11 +60,11 @@ postgresconnection = create_engine('postgresql://stephan:saipass@192.168.1.5:543
 debugWithTimer("reading CSVs")
 
 aisles = pd.read_csv('data\\aisles.csv')
-products = pd.read_csv('data\\products.csv')
 departments = pd.read_csv('data\\departments.csv')
 
 debugWithTimer("done reading CSVs")
 
+products = [] # pd.read_csv('data\\products.csv')
 prod_prior = [] #pd.read_csv('data\\order_products__prior.csv')
 prod_train = [] #pd.read_csv('data\\order_products__train.csv')
 orders = [] #pd.read_csv('data\\orders.csv')
@@ -114,29 +114,44 @@ testidx = []
 def initData(maxusers):
     global prod_prior, prod_train, orders, userProductStats, truth, truthperuser, usersInTest, cacheStore
 
-    files = { 'prod_prior'       : 'SELECT orders.user_id, prod_prior.* FROM prod_prior LEFT JOIN orders ON orders.order_id = prod_prior.order_id WHERE user_id < '
-            , 'prod_train'       : 'SELECT orders.user_id, prod_train.* FROM prod_train LEFT JOIN orders ON orders.order_id = prod_train.order_id WHERE user_id < '
-            , 'orders'          : 'SELECT * FROM orders_e WHERE user_id < '
-            , 'truth'           : 'SELECT orders.user_id, prod_train.product_id, TRUE AS ordered FROM prod_train LEFT JOIN orders ON orders.order_id = prod_train.order_id WHERE user_id < '
-            , 'usersInTest'     : "SELECT user_id, order_id FROM orders WHERE eval_set = 'test' AND user_id < "
+    files = { 'prod_prior'       : 'SELECT orders.user_id, prod_prior.* FROM prod_prior LEFT JOIN orders ON orders.order_id = prod_prior.order_id WHERE user_id <'
+            , 'prod_train'       : 'SELECT orders.user_id, prod_train.* FROM prod_train LEFT JOIN orders ON orders.order_id = prod_train.order_id WHERE user_id <'
+            , 'orders'          : 'SELECT * FROM orders_e WHERE user_id <'
+            , 'truth'           : 'SELECT orders.user_id, prod_train.product_id, TRUE AS ordered FROM prod_train LEFT JOIN orders ON orders.order_id = prod_train.order_id WHERE user_id <'
+            , 'usersInTest'     : "SELECT user_id, order_id FROM orders WHERE eval_set = 'test' AND user_id <"
+            , 'products'        : "SELECT * FROM products_e"
             , 'userProductStats': '__THIS_IS_REPLACED_BY_A_FUNCTION_CALL__'
              }
 
     cacheStore = pd.HDFStore('data/cache/store' + str(maxuserid) +'.h5' )
 
     for file, query in files.items():
+        reload = True
         if cacheStore.__contains__(file):
             cachedVar = cacheStore[file]
             exec("global " + file + ";" + file + ' = cachedVar')
-        else:
+            reload = False
+            # temporary
+            if file == 'products' and not('ordertoreorderfreq' in cachedVar.columns):
+                reload = True
+
+        if reload:
             if file == 'userProductStats':
                 x = getUserProductStats(maxusers)
                 userProductStats = x
             else:
-                x = pd.read_sql(query + maxusers, postgresconnection)
+                if query[-1] == '<':
+                    query = query + ' ' + maxusers
+                x = pd.read_sql(query, postgresconnection)
                 exec( "global " + file + ";" + file + ' = x')
 
+            #imputation
+            # if file == 'products':
+            #     products.fillna(0, inplace=True)
+
             cacheStore[file] = x
+
+
 
     cacheStore.close()
 
@@ -446,6 +461,13 @@ def balancedTrainAndTestForValidation(mostrecent=100):
     test = pd.concat([test, originalTest])
     train = train.drop(['testortrain'], axis=1)
     test = test.drop(['testortrain'], axis=1)
+    train = train.merge(products[['numorders', 'numreorders', 'numusers', 'reordersperuser',
+                             'ordertoreorderfreq', 'product_id', 'aisle_id',
+                             'department_id']], on='product_id', suffixes = ( '', '_') )
+    test = test.merge(products[['numorders', 'numreorders', 'numusers', 'reordersperuser',
+                             'ordertoreorderfreq', 'product_id', 'aisle_id',
+                             'department_id']], on='product_id', suffixes = ( '', '_') )
+
     print('train : ', train.shape, ' test ', test.shape)
     return train, test
 

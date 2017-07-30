@@ -129,7 +129,7 @@ def predictFirstTime(train, test):
         (list(float(not (i)) for i in train['reordered']),
          list(float(i) for i in train['reordered'])))
 
-    noProducts = len(pcb.products)
+    noProducts = max(pcb.products['product_id'])
     inputValues = []
     outputValues = []
     for userId, group in train.groupby('user_id'):
@@ -145,7 +145,21 @@ def predictFirstTime(train, test):
         # print('Counter input : %s, \n output %s' % ( Counter(inputPerUser), Counter(outputPerUser)))
         print('.', end="", flush=True)
 
+    testInputValues = []
+    userList = []
+
+    for userId, group in test.groupby('user_id'):
+        inputPerUser = np.zeros(noProducts)
+        for prodId in group['product_id']:
+            inputPerUser[prodId] = group[group['product_id'] == prodId]['orderfrequency']
+        testInputValues.append(inputPerUser)
+        userList.append(userId)
+        print('.', end="", flush=True)
+
     hiddenLayerSizes = [1000]
+
+    df = pd.DataFrame(columns=('user_id', 'product_id', 'predy'))
+
 
     for prodid in pcb.products['product_id']:
         tf.reset_default_graph()
@@ -177,7 +191,7 @@ def predictFirstTime(train, test):
         preact = tf.matmul(previousLayer, w, name="activation" + str(count))
         # act = tf.nn.softmax(preact)
         output = preact
-        lossFunction = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=output, labels=truthYPlaceholder),
+        lossFunction = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=output, labels=truthYPlaceholder),
                                       name="xent")
         prediction = tf.nn.sigmoid(output)
 
@@ -212,21 +226,32 @@ def predictFirstTime(train, test):
             acc, r, err = s.run([accuracy, rmse, lossFunction], feed_dict=feed_dict)
             print('Accuracy for product %s: %s, rmse : %s error:%s ' % (prodid, str(acc), r, str(err)))
 
-    o = prediction.eval(feed_dict={input:test})
+            o = prediction.eval(feed_dict={inputPlaceholder:testInputValues})
+            o = list(round(i[0]) for i in o)
 
-    df = pd.DataFrame(columns=('user_id', 'product_id', 'predy'))
-    df['user_id'] = test['user_id']
-    df['product_id'] = test['product_id']
-    df['predy'] = o
+        # concat here
+        tmpdf =pd.DataFrame(columns=('user_id', 'product_id', 'predy'))
+        tmpdf['user_id'] = userList
+        tmpdf['product_id'] = list(prodid for i in userList)
+        tmpdf['predy'] = o
+
+        tmpdf = tmpdf[tmpdf['predy'] == 1]
+
+        df = df.append(tmpdf)
+
+    # df = pd.DataFrame(columns=('user_id', 'product_id', 'predy'))
+    # df['user_id'] = test['user_id']
+    # df['product_id'] = test['product_id']
+    # df['predy'] = o
 
     _, f1score = pcb.scorePrediction(df)
 
 def lstm(train, test):
     batchsize = 50
-    SEQLEN = 30
+    SEQLEN = 10
     ALPHASIZE =  1 # len(pcb.products)# number of products
-    CELLSIZE = 512
-    NLAYERS = 2
+    CELLSIZE = 256
+    NLAYERS = 1
 
     pkeep = tf.placeholder(tf.float32)
     lr = tf.placeholder(tf.float32)
@@ -259,13 +284,13 @@ def lstm(train, test):
     Yflat = tf.reshape(Yr, [-1, CELLSIZE])  # [ BATCHSIZE x SEQLEN, INTERNALSIZE ]
     Ylogits = layers.linear(Yflat, ALPHASIZE)  # [ BATCHSIZE x SEQLEN, ALPHASIZE ]
     Yflat_ = tf.reshape(Y_, [-1, ALPHASIZE])  # [ BATCHSIZE x SEQLEN, ALPHASIZE ]
-    loss = tf.nn.softmax_cross_entropy_with_logits(logits=Ylogits, labels=Yflat_)  # [ BATCHSIZE x SEQLEN ]
+    loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=Ylogits, labels=Yflat_)  # [ BATCHSIZE x SEQLEN ] changed from softmax because this isn't categorical
     loss = tf.reshape(loss, [batchsize, -1])  # [ BATCHSIZE, SEQLEN ]
 
     Yo = tf.nn.sigmoid(Ylogits, name='Yo')  # [ BATCHSIZE x SEQLEN, ALPHASIZE ]
     Y = Yo  # [ BATCHSIZE x SEQLEN ]
 
-    Y = tf.reshape(Y, [batchsize, -1], name="Y")  # [ BATCHSIZE, SEQLEN ]
+    Y = tf.reshape(Y, [-1, SEQLEN, 1], name="Y")  # [ BATCHSIZE, SEQLEN ]
     train_step = tf.train.AdamOptimizer(lr).minimize(loss)
 
     # stats for display
@@ -315,13 +340,24 @@ def lstm(train, test):
                 print('Accuracy: %s, batchloss : %s seqless:%s ' % (str(acc), str(batcherr), str(seqerr)))
 
         acc, batcherr, seqerr = sess.run([accuracy, batchloss, seqloss], feed_dict=data)
-        print('Accuracy: %s, batchloss : %s seqless:%s ' % (str(acc), str(batcherr), str(seqerr)))
+        print('Accuracy: %s, batchloss : %s seqloss:%s ' % (str(acc), str(batcherr), str(seqerr)))
 
-        test_batch, _ = createBatchArray(test, SEQLEN)
 
-        inH = np.zeros([batchsize, CELLSIZE * NLAYERS])
-        data = {X: batch_x, Hin : inH}
-        o = Y.eval(feed_dict=data)
+        o = []
+        for curStep in range(1, int(len(test) / batchsize) + 2):
+
+            batch = test[(curStep - 1) * batchsize:(curStep) * batchsize]
+
+            test_batch, _ = createBatchArray(batch, SEQLEN)
+            inH = np.zeros([len(test_batch), CELLSIZE * NLAYERS])
+
+            data = {X: test_batch, Hin : inH, pkeep:1}
+            r = Y.eval(feed_dict=data)
+
+            oslice = r[:,SEQLEN-1,:]
+            osliceround = list(round(i[0]) for i in oslice )
+
+            o = np.append(o,osliceround)
 
     df = pd.DataFrame(columns=('user_id', 'product_id', 'predy'))
     df['user_id'] = test['user_id']
@@ -355,7 +391,10 @@ def createBatchArray(batch, SEQLEN):
     for i, row in batch.iterrows():
         r = row['order_containing_product']
         total = row['totaluserorders']
-        total = max(total, SEQLEN)
+        total = max(min(SEQLEN,total), SEQLEN)
+
+        if ( total > 30 ):
+            print("b")
 
         for ii in r:
             indexFromEnd = total-ii

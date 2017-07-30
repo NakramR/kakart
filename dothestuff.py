@@ -7,6 +7,7 @@ import pandas as pd
 import time
 import random
 import sys
+import matplotlib.pyplot as plt
 
 pcb.debugWithTimer("donewithImport")
 #pcb.maxuserid = '10'
@@ -67,7 +68,7 @@ lastPrediction = []
 # p5 = predictions.generateXGBoostPrediction(pcb.train, pcb.test)
 # pcb.scorePrediction(p5)
 # lastPrediction = p5
-# 10k f1:0.331689111983
+# # 10k f1:0.331689111983
 
 
 
@@ -104,11 +105,11 @@ lastPrediction = []
 # pcb.scorePrediction(p9)
 # lastPrediction = p9
 
-pcb.debugWithTimer("generating LSTM prediction")
-p10 = predictions.lstm(pcb.train, pcb.test)
-pcb.debugWithTimer("scoring p10: ")
-pcb.scorePrediction(p10)
-lastPrediction = p10
+# pcb.debugWithTimer("generating LSTM prediction")
+# p10 = predictions.lstm(pcb.train, pcb.test)
+# pcb.debugWithTimer("scoring p10: ")
+# pcb.scorePrediction(p10)
+# lastPrediction = p10
 
 #
 # pcb.debugWithTimer("generating thirdNN prediction")
@@ -117,18 +118,18 @@ lastPrediction = p10
 # pcb.scorePrediction(p11)
 # lastPrediction = p11
 
-# pcb.debugWithTimer("generating generateXGBoostPredictionLeChat prediction")
-#
-# p12 = bestpredictions.generateXGBoostPredictionLeChat(pcb.train, pcb.test, depth=5, estimators=80, learning_rate=0.1)
-# pcb.debugWithTimer("***scoring p12:")
-# pcb.scorePrediction(p12)
-# lastPrediction = p12
+pcb.debugWithTimer("generating generateXGBoostPredictionLeChat prediction")
 
-# pcb.debugWithTimer("generating fourthNN prediction")
-# p13 = moreNN.myFourthNN(pcb.train, pcb.test, False)
-# pcb.debugWithTimer("scoring p13: ")
-# #pcb.scorePrediction(p13)
-# lastPrediction = p13
+p12 = bestpredictions.generateXGBoostPredictionLeChat(pcb.train, pcb.test, depth=5, estimators=80, learning_rate=0.1)
+pcb.debugWithTimer("***scoring p12:")
+pcb.scorePrediction(p12)
+lastPrediction = p12
+
+pcb.debugWithTimer("generating fourthNN prediction")
+p13 = moreNN.myFourthNN(pcb.train, pcb.test, True)
+pcb.debugWithTimer("scoring p13: ")
+#pcb.scorePrediction(p13)
+lastPrediction = p13
 
 
 

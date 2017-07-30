@@ -74,12 +74,7 @@ def generateXGBoostPredictionLeChat(train, test, depth=4, estimators=80, learnin
     print('\n##################\nXGBoost\n##################')
     features = ['orderfrequency', 'dayfrequency', 'department_id', 'aisle_id', 'days_without_product_order','eval_days_since_prior_order',
                    'numproductorders', 'totaluserorders','day_number_of_last_product_order', 'eval_order_dow', 'orderfreqoverratio', 'orderfreqlast5', 'orderfreqlast10',
-       'orderfreqlast15', 'orderfreqlast20', 'orderfreqlast25',
-       'orderfreqlast30', 'orderfreqlast35', 'orderfreqlast40',
-       'orderfreqlast45', 'orderfreqlast50', 'orderfreqlast55',
-       'orderfreqlast60', 'orderfreqlast65', 'orderfreqlast70',
-       'orderfreqlast75', 'orderfreqlast80', 'orderfreqlast85',
-       'orderfreqlast90', 'orderfreqlast95']
+       'orderfreqlast15', 'reordersperuser', 'ordertoreorderfreq']
 
     param = {}
     #param['booster'] = 'gbtree'
@@ -110,20 +105,13 @@ def generateXGBoostPredictionLeChat(train, test, depth=4, estimators=80, learnin
 
 #    secLearn = RandomizedSearchCV(estimator, n_jobs = 3, cv=5 )
 
-    # feature importance
-    # estimator.fit(X_train, y_train)
-    # print(estimator.feature_importances_)
-    # plot
-    # pyplot.bar(range(len(estimator.feature_importances_)), estimator.feature_importances_)
-    # pyplot.show()
-
     testNoID = test[features]
 
     y_pred = metLearn.predict(testNoID)
 
     estimator.fit(X_train, y_train)
-    xgboost.plot_importance(estimator, height=0.2)
-    plt.show()
+    # xgboost.plot_importance(estimator, height=0.2)
+    # plt.show()
 
     # estimator.fit(X_train, y_train)
     # y_pred = estimator.predict(test)
@@ -134,6 +122,8 @@ def generateXGBoostPredictionLeChat(train, test, depth=4, estimators=80, learnin
     df['user_id'] = test['user_id']
     df['product_id'] = test['product_id']
     df['predy'] = y_pred
+
+    df.to_csv('data/results/xgboost10000.csv')
     return df
 
 def makeHyperParamString(hiddenLayerSizes, dropoutRate, numFeatures, optimizer, learningrate, lossFunction, extra):

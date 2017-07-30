@@ -82,15 +82,15 @@ def myFourthNN(train, test, usePriorResultFile=True):
        'orderfreqlast45', 'orderfreqlast50', 'orderfreqlast55',
        'orderfreqlast60', 'orderfreqlast65', 'orderfreqlast70',
        'orderfreqlast75', 'orderfreqlast80', 'orderfreqlast85',
-       'orderfreqlast90', 'orderfreqlast95'
+       'orderfreqlast90', 'orderfreqlast95','reordersperuser', 'ordertoreorderfreq'
 ]
-
+#(49683, 49678, 49680, 49677)
     features28 = ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'eval_days_since_prior_order', 'numproductorders', 'totaluserorders', 'orderfreqoverratio', 'orderfreqlast5', 'orderfreqlast10',
        'orderfreqlast15', 'orderfreqlast20', 'orderfreqlast25',
        'orderfreqlast30', 'orderfreqlast35', 'orderfreqlast40',
        'orderfreqlast45', 'orderfreqlast50', 'orderfreqlast55',
-       'orderfreqlast60' ]
-    features9 = ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id', 'aisle_id','eval_days_since_prior_order', 'numproductorders', 'totaluserorders', 'orderfreqoverratio']
+       'orderfreqlast60', 'reordersperuser','ordertoreorderfreq']
+    features9 = ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id', 'aisle_id','eval_days_since_prior_order', 'numproductorders', 'totaluserorders', 'orderfreqoverratio','reordersperuser', 'ordertoreorderfreq']
     features4 = ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id']
     features1 = ['orderfrequency']
 
@@ -103,11 +103,11 @@ def myFourthNN(train, test, usePriorResultFile=True):
     tf.set_random_seed(42)
 
     possibleOptimizers = ['adam']
-    possibleFeatures = [features28] # [features4, features9] #[features1, features4, features9]
+    possibleFeatures = [features28, features9] # [features4, features9] #[features1, features4, features9]
     possibleDropoutRates =  [0.8] #[0.75, 0.9, 1.0 ]
-    possibleNetworkLayerShapes = [ [5], [15], [30], [30,10] ] #, [20,20,20], [100,50, 20] ]
+    possibleNetworkLayerShapes = [ [5], [15], [30], [30,10], [20,20,20], [50,20], [100,50, 20] ]
 #    possibleNetworkLayerShapes = [ [20], [20,20], [30,20], [30,20,10], [30], [10], [15] ]
-    possibleLearningRates = [0.01]
+    possibleLearningRates = [0.005, 0.001]
 
     hyperParamExplorationDict = []
     for fdef in possibleFeatures:
@@ -117,21 +117,23 @@ def myFourthNN(train, test, usePriorResultFile=True):
                     for lr in possibleLearningRates:
                         for vlr in [False]:
                             for adsize in [15]: #[60, 30, 10]:
-                                hyperParamExplorationDict.extend(
-                                [
-                                    { 'method': 'fourthNN-balancedInput'
-                                      ,'features': fdef
-                                      ,'hiddenLayerSizes' : nshape
-                                      ,'dropoutRate' : dr
-                                      ,'optimizerName' :optimizerName  # gradientDescent, adagrad, adam
-                                      ,'lr' : lr
-                                      ,'lf' : 'sigmoidxent'  # sigmoidxent, softmaxxent, weighted
-                                      ,'vlr': vlr
-                                      ,'extra' : ''
-                                      ,'adsize' : adsize
-                                    }
-                                ]
-                                )
+                                for threshold in [0.8, 0.7, 0.6, 0.5]:
+                                    hyperParamExplorationDict.extend(
+                                    [
+                                        { 'method': 'fourthNN-balancedInput-thresh'
+                                          ,'features': fdef
+                                          ,'hiddenLayerSizes' : nshape
+                                          ,'dropoutRate' : dr
+                                          ,'optimizerName' :optimizerName  # gradientDescent, adagrad, adam
+                                          ,'lr' : lr
+                                          ,'lf' : 'sigmoidxent'  # sigmoidxent, softmaxxent, weighted
+                                          ,'vlr': vlr
+                                          ,'extra' : ''
+                                          ,'adsize' : adsize
+                                          ,'threshold': threshold
+                                        }
+                                    ]
+                                    )
 
     # just one, the best
     # hyperParamExplorationDict = [{'features': ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'department_id', 'aisle_id', 'eval_days_since_prior_order', 'numproductorders', 'totaluserorders', 'eval_days_since_prior_order'], 'hiddenLayerSizes': [50, 20], 'dropoutRate': 0.9, 'optimizerName': 'adam', 'lr': 0.001, 'lf': 'softmaxxent', 'extra': '-balancedinput'}]
@@ -165,7 +167,11 @@ def myFourthNN(train, test, usePriorResultFile=True):
     x_train = None
     y_train = None
 
-    #hyperParamExplorationDict = [{'method': 'fourthNN-balancedInput', 'features': ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'eval_days_since_prior_order', 'numproductorders', 'totaluserorders', 'orderfreqoverratio', 'orderfreqlast5', 'orderfreqlast10', 'orderfreqlast15', 'orderfreqlast20', 'orderfreqlast25', 'orderfreqlast30', 'orderfreqlast35', 'orderfreqlast40', 'orderfreqlast45', 'orderfreqlast50', 'orderfreqlast55', 'orderfreqlast60'], 'hiddenLayerSizes': [30, 10], 'dropoutRate': 0.8, 'optimizerName': 'adam', 'lr': 0.01, 'lf': 'sigmoidxent', 'vlr': False, 'extra': '', 'adsize': 30}]
+    # hyperParamExplorationDict = [{'method': 'fourthNN-balancedInput', 'features': ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'eval_days_since_prior_order', 'numproductorders', 'totaluserorders', 'orderfreqoverratio', 'orderfreqlast5', 'orderfreqlast10', 'orderfreqlast15', 'orderfreqlast20', 'orderfreqlast25', 'orderfreqlast30', 'orderfreqlast35', 'orderfreqlast40', 'orderfreqlast45', 'orderfreqlast50', 'orderfreqlast55', 'orderfreqlast60','reordersperuser', 'ordertoreorderfreq'], 'hiddenLayerSizes': [30, 10], 'dropoutRate': 0.8, 'optimizerName': 'adam', 'lr': 0.01, 'lf': 'sigmoidxent', 'vlr': False, 'extra': '', 'adsize': 30}]
+    hyperParamExplorationDict = [{'method': 'fourthNN-balancedInput-thresh', 'features': ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'eval_days_since_prior_order', 'numproductorders', 'totaluserorders', 'orderfreqoverratio', 'orderfreqlast5', 'orderfreqlast10', 'orderfreqlast15', 'orderfreqlast20', 'orderfreqlast25', 'orderfreqlast30', 'orderfreqlast35', 'orderfreqlast40', 'orderfreqlast45', 'orderfreqlast50', 'orderfreqlast55', 'orderfreqlast60', 'reordersperuser', 'ordertoreorderfreq'], 'hiddenLayerSizes': [30], 'dropoutRate': 0.8, 'optimizerName': 'adam', 'lr': 0.005, 'lf': 'sigmoidxent', 'vlr': False, 'extra': '', 'adsize': 15, 'threshold': 0.7}]
+    usePriorResultFile = False
+
+
 
     defCounter = 0
     for oneDefinition in hyperParamExplorationDict : #placeholder for hyperparam exploration
@@ -184,6 +190,7 @@ def myFourthNN(train, test, usePriorResultFile=True):
         extra = oneDefinition['extra']
         variableLearningRate = oneDefinition['vlr']
         adsize = oneDefinition['adsize']
+        threshold = oneDefinition['threshold']
 
         nbfeatures = len(features)
 
@@ -336,6 +343,7 @@ def myFourthNN(train, test, usePriorResultFile=True):
 
         # cast the predictions as integers
         xx = list(round(i[0]) for i in o)
+        xx = list(int(i[0] > threshold) for i in o)
 
         df = pd.DataFrame(columns=('user_id', 'product_id', 'predy'))
         df['user_id'] = test['user_id']
@@ -373,4 +381,5 @@ def myFourthNN(train, test, usePriorResultFile=True):
         f.write("\n{:.5f}".format(score) + ':' +definition)
     f.close()
 
+    bestDF.to_csv('data/results/nn10000.csv')
     return bestDF
