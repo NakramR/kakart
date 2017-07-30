@@ -36,7 +36,7 @@ pcb.train, pcb.test = pcb.trainAndTestForValidation()
 # pcb.test = pcb.userProductStats.loc[pcb.stestidx]
 #
 pcb.train, pcb.holdout, pcb.test = pcb.balancedTrainAndTestForValidation()
-
+pcb.trainidx, pcb.holdoutidx, pcb.testidx = pcb.balancedTrainAndTestDFIDXForValidation()
 
 
 #print(usersInTest)

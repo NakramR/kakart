@@ -38,7 +38,7 @@ train = []
 test = []
 holdout = []
 trainidx = []
-stestidx = []
+holdoutidx = []
 testidx = []
 
 
@@ -129,36 +129,12 @@ def initData(maxusers):
                 x = pd.read_sql(query, postgresconnection)
                 exec( "global " + file + ";" + file + ' = x')
 
-            #imputation
-            # if file == 'products':
-            #     products.fillna(0, inplace=True)
-
             cacheStore[file] = x
-
-
 
     cacheStore.close()
 
-    # for file, query in files.items():
-    #     filepath = 'data/cache/' + file + maxusers + '.csv'
-    #     if os.path.isfile(filepath):
-    #         cmd = "global " + file + ";" + file + " = pd.read_csv(\'" + filepath + "\')"
-    #         exec(cmd)
-    #     else:
-    #         if file == 'userProductStats':
-    #             userProductStats = getUserProductStats(maxusers)
-    #         else:
-    #             x = pd.read_sql(query + maxusers, postgresconnection)
-    #             exec( "global " + file + ";" + file + ' = x')
-    #
-    #         cmd = file + ".to_csv(\'" + filepath + "\')"
-    #         exec(cmd)
-
-
     truthperuser = truth.groupby('user_id')['product_id'].apply(list)
-    # userProductStats['order_containing_product'].apply(literal_eval) # convert the string representation of arrays back to arrays
 
-    print('blah')
 
 def eval_fun(labels, preds):
     rr = (np.intersect1d(labels, preds))
@@ -171,7 +147,7 @@ def eval_fun(labels, preds):
     return (precision, recall, f1)
 
 def scorePrediction(predictionperitem):
-    global truthperuser, train, uniqueproductperusercache
+    global truthperuser, train, uniqueproductperusercache, truth
     usercount = 0
     sumf1 = 0.0
     sumf1x = 0.0
@@ -180,9 +156,9 @@ def scorePrediction(predictionperitem):
         return 0,0
 
     debugWithTimer("preparing score")
-    uniquetrainusers = train['user_id'].unique()
+#    uniquetrainusers = truth['user_id'].unique() #truth contains all train results
+
     myprediction = predictionperitem[predictionperitem['predy'] == True]
-    #myprediction = myprediction[~myprediction['user_id'].isin(uniquetrainusers)]
     myprediction = myprediction.groupby('user_id')['product_id'].apply(list)
 
     if ( len(uniqueproductperusercache) == 0 ):
@@ -196,8 +172,8 @@ def scorePrediction(predictionperitem):
     debugWithTimer("iterating")
     for index, x in truthperuser.iteritems():
 
-        if index in uniquetrainusers:
-            continue
+#        if index in uniquetrainusers:
+#            continue
 
         usercount = usercount + 1
 
