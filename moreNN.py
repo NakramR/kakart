@@ -401,5 +401,5 @@ def myFourthNN(train, holdout, test, usePriorResultFile=True):
         f.write("\n{:.5f}".format(score) + ':' +definition)
     f.close()
 
-    bestDFHoldout.to_csv('data/results/nn' + pcb.maxuserid + '.csv')
+    bestDFHoldout.to_csv('data/results/nn' + pcb.maxuserid + '.csv', index=False)
     return bestDFHoldout, bestDFTest

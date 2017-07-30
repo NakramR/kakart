@@ -123,7 +123,7 @@ def generateXGBoostPredictionLeChat(train, holdout, test, depth=4, estimators=80
     df['product_id'] = test['product_id']
     df['predy'] = y_pred
 
-    df.to_csv('data/results/xgboost' + pcb.maxuserid + '.csv')
+    df.to_csv('data/results/xgboost' + pcb.maxuserid + '.csv', index=False)
     return df
 
 def makeHyperParamString(hiddenLayerSizes, dropoutRate, numFeatures, optimizer, learningrate, lossFunction, extra):
