@@ -167,17 +167,19 @@ def scorePrediction(predictionperitem):
     else:
         uniqueproductperuser = uniqueproductperusercache
 
+    usercount = len(predictionperitem['user_id'].unique()) -len(myprediction) # count people who have no prediction
+
+
     print('Prediction frequency: %s ' % Counter(predictionperitem['predy']))
 
     debugWithTimer("iterating")
     for index, x in truthperuser.iteritems():
 
-#        if index in uniquetrainusers:
-#            continue
-
-        usercount = usercount + 1
+        # if index in uniquetrainusers:
+        #     continue
 
         if index in myprediction:
+            usercount = usercount + 1
             #eval_fun
             #xx = eval_fun(truthperuser[index], myprediction[index])
             #sumf1 = sumf1 + xx[2]

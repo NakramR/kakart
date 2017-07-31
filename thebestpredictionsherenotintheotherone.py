@@ -79,6 +79,7 @@ def generateXGBoostPredictionLeChat(train, holdout, test, depth=4, estimators=80
     param = {}
     #param['booster'] = 'gbtree'
     param['objective'] = 'binary:logistic'
+    # param['objective'] = 'multi:softprob'
     # param["eval_metric"] = "error"
     # param['eta'] = 0.3
     # param['gamma'] = 0
@@ -107,24 +108,33 @@ def generateXGBoostPredictionLeChat(train, holdout, test, depth=4, estimators=80
 
     testNoID = test[features]
 
-    y_pred = metLearn.predict(testNoID)
+    yPred = metLearn.predict(testNoID)
+    yPredHoldout = metLearn.predict_proba(holdout[features])
+    yPredHoldout = list(el[1] for el in yPredHoldout)
 
-    estimator.fit(X_train, y_train)
+    # estimator.fit(X_train, y_train)
     # xgboost.plot_importance(estimator, height=0.2)
     # plt.show()
 
     # estimator.fit(X_train, y_train)
     # y_pred = estimator.predict(test)
-    print('Predict counter : %s' % (Counter(y_pred)))
+    print('Predict counter : %s, holdout %s' % (Counter(yPred), Counter(yPredHoldout)))
 
 
     df = pd.DataFrame(columns=('user_id', 'product_id', 'predy'))
     df['user_id'] = test['user_id']
     df['product_id'] = test['product_id']
-    df['predy'] = y_pred
+    df['predy'] = yPred
 
-    df.to_csv('data/results/xgboost' + pcb.maxuserid + '.csv', index=False)
-    return df
+    threshold = 0.7
+    dfHoldout = pd.DataFrame(columns=('user_id', 'product_id', 'predy'))
+    dfHoldout['user_id'] = holdout['user_id']
+    dfHoldout['product_id'] = holdout['product_id']
+    dfHoldout['predy'] = list(int(el >= threshold) for el in yPredHoldout)
+    dfHoldout['floaty'] = yPredHoldout
+    dfHoldout.to_csv('data/results/xgboost' + pcb.maxuserid + '.csv', index=False)
+
+    return dfHoldout, df
 
 def makeHyperParamString(hiddenLayerSizes, dropoutRate, numFeatures, optimizer, learningrate, lossFunction, extra):
 

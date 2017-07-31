@@ -1,9 +1,15 @@
-import petitchatbase as pcb
-import sys
-import tensorflow as tf
-import operator
-import pandas as pd
 import math
+import operator
+import sys
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import sklearn
+import tensorflow as tf
+
+import petitchatbase as pcb
+
 
 def makeHyperParamString(hiddenLayerSizes, dropoutRate, numFeatures, optimizer, learningrate, lossFunction, extra):
 
@@ -69,6 +75,69 @@ def batchnorm(Ylogits, Offset, Scale, is_test, iteration):
     v = tf.cond(is_test, lambda: exp_moving_avg.average(variance), lambda: variance)
     Ybn = tf.nn.batch_normalization(Ylogits, m, v, Offset, Scale, bnepsilon)
     return Ybn, update_moving_everages
+
+uniqueproductperusercache = []
+fulluserprodscache = {}
+booltruthcache = {}
+
+def fasterScoreProduction(predictionperitem):
+    global  uniqueproductperusercache, fulluserprodscache, booltruthcache
+    usercount = 0
+    sumf1 = 0.0
+    sumf1x = 0.0
+
+    if predictionperitem is None:
+        return 0,0
+
+    # remove all negative predictions
+    myprediction = predictionperitem[predictionperitem['predy'] == True]
+    myprediction = myprediction.groupby('user_id')['product_id'].apply(list)
+
+    # get all prior user products
+    if ( len(uniqueproductperusercache) == 0 ):
+        uniqueproductperuser = pcb.userProductStats.groupby('user_id')['product_id'].unique() #past products only
+        uniqueproductperusercache = uniqueproductperuser
+    else:
+        uniqueproductperuser = uniqueproductperusercache
+
+    # count people who have no prediction
+    usercount = len(predictionperitem['user_id'].unique()) - len(myprediction)
+
+    #iterate on users (index is user_id)
+    for index, x in pcb.truthperuser.iteritems():
+
+        if index in myprediction:
+            usercount = usercount + 1
+
+            # get the full product list, including entirely new products that were not present in training data
+            if fulluserprodscache.__contains__(index):
+                fulluserprods = fulluserprodscache[index]
+            else:
+                fulluserprods = set().union(list(uniqueproductperuser[index]),list(myprediction[index]))
+                fulluserprodscache[index] = fulluserprods
+
+            bTruth = []
+            if booltruthcache.__contains__(index):
+                bTruth = booltruthcache[index]
+            else:
+                bTruth = list(i in pcb.truthperuser[index] for i in fulluserprods)
+                booltruthcache[index] = bTruth
+
+            # get a boolean match between truth & full product list
+            # get a boolean match between prediction & full product list
+            bPred = list(i in myprediction[index] for i in fulluserprods)
+
+            sumf1x = sumf1x + sklearn.metrics.f1_score(bTruth, bPred)
+
+    if usercount != 0:
+        sumf1 = sumf1 / usercount
+        sumf1x = sumf1x / usercount
+        print(" Scoring sklearn.f1:", end='')
+        print(sumf1x)
+    else:
+        print("No user, no predictions. Pbbbbbt")
+
+    return sumf1, sumf1x
 
 
 def myFourthNN(train, holdout, test, usePriorResultFile=True):
@@ -158,7 +227,7 @@ def myFourthNN(train, holdout, test, usePriorResultFile=True):
     #                        'orderfreqlast90', 'orderfreqlast95'], 'hiddenLayerSizes': [10], 'dropoutRate': 0.9,
     #           'optimizerName': 'adam', 'lr': 0.1, 'lf': 'sigmoidxent', 'extra': '-balancedinput', 'vlr' : False}]
 
-    bestScore = 0
+    bestScore = -1
     bestDefinition = {}
     bestDF = None
     bestDFHoldout = None
@@ -170,10 +239,11 @@ def myFourthNN(train, holdout, test, usePriorResultFile=True):
 
     # hyperParamExplorationDict = [{'method': 'fourthNN-balancedInput', 'features': ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'eval_days_since_prior_order', 'numproductorders', 'totaluserorders', 'orderfreqoverratio', 'orderfreqlast5', 'orderfreqlast10', 'orderfreqlast15', 'orderfreqlast20', 'orderfreqlast25', 'orderfreqlast30', 'orderfreqlast35', 'orderfreqlast40', 'orderfreqlast45', 'orderfreqlast50', 'orderfreqlast55', 'orderfreqlast60','reordersperuser', 'ordertoreorderfreq'], 'hiddenLayerSizes': [30, 10], 'dropoutRate': 0.8, 'optimizerName': 'adam', 'lr': 0.01, 'lf': 'sigmoidxent', 'vlr': False, 'extra': '', 'adsize': 30}]
     hyperParamExplorationDict = [{'method': 'fourthNN-balancedInput-thresh', 'features': ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'eval_days_since_prior_order', 'numproductorders', 'totaluserorders', 'orderfreqoverratio', 'orderfreqlast5', 'orderfreqlast10', 'orderfreqlast15', 'orderfreqlast20', 'orderfreqlast25', 'orderfreqlast30', 'orderfreqlast35', 'orderfreqlast40', 'orderfreqlast45', 'orderfreqlast50', 'orderfreqlast55', 'orderfreqlast60', 'reordersperuser', 'ordertoreorderfreq'], 'hiddenLayerSizes': [30], 'dropoutRate': 0.8, 'optimizerName': 'adam', 'lr': 0.005, 'lf': 'sigmoidxent', 'vlr': False, 'extra': '', 'adsize': 15, 'threshold': 0.7}]
-    usePriorResultFile = False
+    usePriorResultFile = False  #{'method': 'fourthNN-balancedInput-thresh', 'features': ['orderfrequency', 'dayfrequency', 'days_without_product_order', 'eval_days_since_prior_order', 'numproductorders', 'totaluserorders', 'orderfreqoverratio', 'orderfreqlast5', 'orderfreqlast10', 'orderfreqlast15', 'orderfreqlast20', 'orderfreqlast25', 'orderfreqlast30', 'orderfreqlast35', 'orderfreqlast40', 'orderfreqlast45', 'orderfreqlast50', 'orderfreqlast55', 'orderfreqlast60', 'reordersperuser', 'ordertoreorderfreq'], 'hiddenLayerSizes': [50, 20], 'dropoutRate': 0.8, 'optimizerName': 'adam', 'lr': 0.005, 'lf': 'sigmoidxent', 'vlr': False, 'extra': '', 'adsize': 15, 'threshold': 0.6}
+    showPlots = False
+    tmpCheckEarlyStopping = True
 
-
-
+    acclossrecord = np.zeros((1,3))
     defCounter = 0
     for oneDefinition in hyperParamExplorationDict : #placeholder for hyperparam exploration
         defCounter = defCounter + 1
@@ -276,24 +346,30 @@ def myFourthNN(train, holdout, test, usePriorResultFile=True):
             tf.summary.scalar("accuracy", accuracy)
 
 
-        batch = tf.Variable(0, trainable=False)
+        global_step = tf.Variable(0, name='global_step', trainable=False)
 
         # create the optimizer (called training step)
         #
         with tf.name_scope('train'):
             if ( optimizerName == 'adagrad' ):
                 train_step = tf.train.AdagradOptimizer(learning_rate=tflr).minimize(lossFunction,
-                                                             global_step=batch)
+                                                             global_step=global_step )
             elif ( optimizerName == 'adam'):
                 train_step = tf.train.AdamOptimizer(learning_rate=tflr).minimize(lossFunction,
-                                                             global_step=batch)
+                                                             global_step=global_step )
             elif (optimizerName == 'gradientDescent'):
                 train_step = tf.train.GradientDescentOptimizer(learning_rate=tflr).minimize(lossFunction,
-                                                             global_step=batch)
-
+                                                             global_step=global_step )
+        init_op = tf.global_variables_initializer()
+        saver = tf.train.Saver(max_to_keep=0)
+        ff = 0 # used to store temporary F1
+        lastF1 = -1 # used to determine whether to save a new checkpoint or not
+        if showPlots == True:
+            fig = plt.figure()
+            plt.title(hyperParamStr)
         with tf.Session() as s:
             tf.set_random_seed(42)
-            tf.global_variables_initializer().run()
+            init_op.run()
 
             curStep = 1
             batchSize = 100
@@ -303,14 +379,17 @@ def myFourthNN(train, holdout, test, usePriorResultFile=True):
                 file_writer = tf.summary.FileWriter('data/tflogs4/' + hyperParamStr)
                 file_writer.add_graph(s.graph)
 
-            #graph = pd.DataFrame(columns=['index', 'accuracy', 'error']);
-            for curStep in range(1,int(len(y_train)/batchSize)+1):
+            maxStep = int(len(y_train)/batchSize)+1
+            for curStep in range(1,maxStep+1):
+                # get the actual train data chunk
                 batch_x  = x_train[(curStep-1)*batchSize:(curStep)*batchSize]
                 batch_ax = x_aisle[(curStep-1)*batchSize:(curStep)*batchSize]
                 batch_dx = x_dep[(curStep-1)*batchSize:(curStep)*batchSize]
                 batch_y = y_train[(curStep-1)*batchSize:(curStep)*batchSize]
 
-                learning_rate = 1
+                if len(batch_x) == 0:
+                    continue
+
                 if variableLearningRate == True:
                     max_learning_rate = initiallr #0.001
                     min_learning_rate = initiallr/100
@@ -319,22 +398,103 @@ def myFourthNN(train, holdout, test, usePriorResultFile=True):
                 else:
                     learning_rate = initiallr
 
-
                 # train
                 feed_dict = {inputPlaceholder: batch_x , truthYPlaceholder: batch_y, neuronDropoutRate : dropoutRate, tflr: learning_rate, istest:False, currentiter:curStep, aislePlaceholder:batch_ax, departmentPlaceholder:batch_dx}
+                train_step.run(feed_dict=feed_dict)
 
+                # save summary for tensorboard
                 if ( bSaveTFSummary == True and curStep % 5 == 0 ):
                     summaryData = s.run(merged_summary,feed_dict)
                     file_writer.add_summary(summaryData,curStep)
 
-                train_step.run(feed_dict=feed_dict)
 
+                # check F1 score for early stopping
+                if ( curStep % 50 == 0 and tmpCheckEarlyStopping == True):
+                    # get the value for scoring
+                    x_test = holdout[features]
+                    x_tdep = holdout['department_id']
+                    x_taisle = holdout['aisle_id']
+
+                    feed_dict = {inputPlaceholder: x_test, neuronDropoutRate: 1.0,
+                                 istest: True, aislePlaceholder: x_taisle, departmentPlaceholder: x_tdep}
+                    predHoldout = prediction.eval(feed_dict=feed_dict)
+                    xx = list(int(i[0] > threshold) for i in predHoldout)
+
+                    df = pd.DataFrame(columns=('user_id', 'product_id', 'predy'))
+                    df['user_id'] = holdout['user_id']
+                    df['product_id'] = holdout['product_id']
+                    df['predy'] = xx
+
+                    print('+', end='')
+                    _, ff = fasterScoreProduction(df)
+                    # _, ff = pcb.scorePrediction(df) f1:0.369394614599
+
+                # record accuracy
                 feed_dict = {inputPlaceholder: batch_x , truthYPlaceholder: batch_y, neuronDropoutRate : 1.0, tflr: learning_rate, istest:False, currentiter:curStep, aislePlaceholder:batch_ax, departmentPlaceholder:batch_dx}
                 acc, loss = s.run([accuracy, lossFunction], feed_dict=feed_dict)
-                if (curStep % 100 == 0):
-                    print('Accuracy on self: %s loss:%s ' % (str(acc), str(loss)))
+                acclossrecord = np.append(acclossrecord, [[acc, loss, ff]], axis=0)
 
-            # get the value for scoring
+                # save checkpoint
+                if ( curStep % 50 == 0 ):
+                    extrarr = ""
+                    if ( lastF1 < ff ):
+                        lastF1 = ff
+                        extrarr = "**"
+                    fileName = "data/checkpoints/nn4" + pcb.maxuserid + "-" + extrarr + str(curStep) + "-" + str(maxStep) + "f." + str(ff) + ".ckpt"
+                    saver.save(s, fileName, global_step=global_step)
+
+                # print the accuracy to stdout
+                if (curStep % 100 == 0):
+                    print('Accuracy: %s loss:%s ' % (str(acc), str(loss)))
+
+                #graph the accuary/loss/F1
+                if curStep % 50 == 0 and showPlots == True:
+                    plt.clf()
+                    movingavg = np.convolve(acclossrecord[:, 0], np.ones((50,)) / 50, mode='valid')
+                    ax = fig.add_subplot(221)
+                    ax2 = fig.add_subplot(222)
+                    ax3 = fig.add_subplot(212)
+                    ax4 = ax3.twinx()
+                    ax2.set_yscale("log")
+                    ax.plot(acclossrecord[:, 0])
+                    ax.plot(movingavg, color='yellow')
+                    ax2.plot(acclossrecord[:, 1])
+                    ax3.plot(acclossrecord[:, 0])
+                    ax3.plot(movingavg, color='yellow')
+                    ax4.plot(acclossrecord[:, 2], color='orange')
+                    ax3.axhline(max(movingavg), linestyle='--', color='grey', label='max accuracy', linewidth=0.5,
+                                xmax=0.9)
+                    ax4.axhline(max(acclossrecord[:, 2]), linestyle='--', color='red', label='max accuracy',
+                                linewidth=0.5,
+                                xmin=0.1)
+                    ax4.grid(False)
+                    plt.ion()
+                    plt.pause(0.05)
+
+            # show the final graph
+            if showPlots == True:
+                fig = plt.figure()
+                movingavg = np.convolve(acclossrecord[:, 0], np.ones((50,)) / 50, mode='valid')
+                ax = fig.add_subplot(221)
+                ax2 = fig.add_subplot(222)
+                ax3 = fig.add_subplot(212)
+                ax4 = ax3.twinx()
+                ax2.set_yscale("log")
+                ax.plot(acclossrecord[:, 0])
+                ax.plot(movingavg, color='yellow')
+                ax2.plot(acclossrecord[:, 1])
+                ax3.plot(acclossrecord[:, 0])
+                ax3.plot(movingavg, color='yellow')
+                ax4.plot(acclossrecord[:, 2], color='orange')
+                ax3.axhline(max(movingavg), linestyle='--', color='grey', label='max accuracy', linewidth=0.5, xmax=0.9)
+                ax4.axhline(max(acclossrecord[:, 2]), linestyle='--', color='red', label='max accuracy', linewidth=0.5,
+                            xmin=0.1)
+                ax4.grid(False)
+                plt.ion()
+                plt.pause(0.05)
+                plt.show()
+
+            # get the value for scoring (holdout)
             x_test = holdout[features]
             x_tdep = holdout['department_id']
             x_taisle = holdout['aisle_id']
